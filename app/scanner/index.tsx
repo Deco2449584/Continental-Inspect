@@ -17,6 +17,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { EvidencePhotosField } from '@/components/EvidencePhotosField';
+import { EvidenceVideoField } from '@/components/EvidenceVideoField';
 import { OptionGroup } from '@/components/OptionGroup';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/AuthContext';
@@ -224,13 +225,6 @@ export default function CargoInspectionFormScreen() {
     } finally {
       setIsSaving(false);
     }
-  };
-
-  const handleAddVideoPlaceholder = () => {
-    Alert.alert(
-      'Video evidence',
-      'Video capture (max 30s) will be available in a future update. Photos are saved with this inspection.',
-    );
   };
 
   if (inspectionsLoading && editId) {
@@ -451,14 +445,10 @@ export default function CargoInspectionFormScreen() {
               isAdmin={isAdmin}
             />
 
-            <Pressable
-              style={({ pressed }) => [
-                styles.videoButton,
-                pressed && styles.videoButtonPressed,
-              ]}
-              onPress={handleAddVideoPlaceholder}>
-              <Text style={styles.videoButtonText}>Add video (max 30s)</Text>
-            </Pressable>
+            <EvidenceVideoField
+              videos={form.videoEvidence}
+              onChange={(videoEvidence) => patchForm({ videoEvidence })}
+            />
           </View>
 
           <Pressable
@@ -707,20 +697,6 @@ function createFormStyles(colors: AppColors) {
       fontSize: 12,
       color: colors.text.onSurfaceMuted,
       lineHeight: 17,
-    },
-    videoButton: {
-      borderRadius: 10,
-      paddingVertical: 14,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border.onSurface,
-      backgroundColor: colors.surface.muted,
-    },
-    videoButtonPressed: { opacity: 0.85 },
-    videoButtonText: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: 14,
-      color: colors.text.onSurface,
     },
     primaryButton: {
       backgroundColor: colors.accent.primary,
