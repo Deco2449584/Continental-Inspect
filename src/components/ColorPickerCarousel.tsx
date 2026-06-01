@@ -2,6 +2,7 @@ import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { ACCENT_DIM_STRONG, ACCENT_TINT_LIGHT } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 
 type ColorPickerCarouselProps = {
@@ -36,7 +37,7 @@ function createStyles(colors: AppColors, isDark: boolean) {
     },
     chipSelected: {
       borderColor: colors.accent.primary,
-      backgroundColor: isDark ? 'rgba(226, 31, 40, 0.2)' : '#FDE8EA',
+      backgroundColor: isDark ? ACCENT_DIM_STRONG : ACCENT_TINT_LIGHT,
     },
     chipText: {
       fontSize: 13,

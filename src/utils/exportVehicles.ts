@@ -77,7 +77,7 @@ export async function shareVehiclesAsCsv(
   const timestamp = new Date().toISOString().slice(0, 10);
   await writeAndShare(
     vehiclesToCsv(vehicles, catalogTypes),
-    `fineshine-records-${timestamp}.csv`,
+    `continental-inspect-records-${timestamp}.csv`,
     'text/csv',
   );
 }
@@ -90,7 +90,7 @@ export async function shareVehiclesAsExcel(
   const timestamp = new Date().toISOString().slice(0, 10);
   await writeAndShare(
     vehiclesToCsv(vehicles, catalogTypes),
-    `fineshine-records-${timestamp}.xls`,
+    `continental-inspect-records-${timestamp}.xls`,
     'application/vnd.ms-excel',
   );
 }

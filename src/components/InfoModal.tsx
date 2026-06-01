@@ -2,10 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { ACCENT, ACCENT_DIM, ACCENT_DIM_SOFT } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
-
-const RED = '#E21F28';
 
 type InfoModalProps = {
   visible: boolean;
@@ -35,7 +34,7 @@ function createStyles(colors: AppColors) {
     },
     topAccent: {
       height: 4,
-      backgroundColor: RED,
+      backgroundColor: ACCENT,
     },
     body: {
       padding: 24,
@@ -46,7 +45,7 @@ function createStyles(colors: AppColors) {
       width: 56,
       height: 56,
       borderRadius: 16,
-      backgroundColor: 'rgba(226,31,40,0.12)',
+      backgroundColor: ACCENT_DIM,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -73,12 +72,12 @@ function createStyles(colors: AppColors) {
       justifyContent: 'center',
     },
     confirmBtnPressed: {
-      backgroundColor: 'rgba(226,31,40,0.08)',
+      backgroundColor: ACCENT_DIM_SOFT,
     },
     confirmText: {
       fontFamily: fonts.headingSemiBold,
       fontSize: 16,
-      color: RED,
+      color: ACCENT,
     },
   });
 }
@@ -105,7 +104,7 @@ export function InfoModal({
           <View style={styles.topAccent} />
           <View style={styles.body}>
             <View style={styles.iconWrap}>
-              <Ionicons name={icon} size={28} color={RED} />
+              <Ionicons name={icon} size={28} color={ACCENT} />
             </View>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.message}>{message}</Text>

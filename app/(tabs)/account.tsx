@@ -166,14 +166,17 @@ export default function AccountScreen() {
     const url = brand.website;
     const canOpen = await Linking.canOpenURL(url);
     if (!canOpen) {
-      Alert.alert('Support', `Call ${brand.phone} or visit fineshine.com.au`);
+      Alert.alert(
+        'Support',
+        `Call ${brand.phone} or visit ${brand.websiteDisplay}`,
+      );
       return;
     }
     await Linking.openURL(url);
   };
 
   const callSupport = () => {
-    Linking.openURL(`tel:${brand.phone.replace(/\s/g, '')}`);
+    Linking.openURL(`tel:${brand.phoneDial}`);
   };
 
   const onDarkModeChange = useCallback(
@@ -191,7 +194,9 @@ export default function AccountScreen() {
         <View style={styles.centerBlock}>
           <FineShineLogo width={160} />
           <Text style={styles.title}>Account</Text>
-          <Text style={styles.subtitle}>{brand.panelTitle}</Text>
+          <Text style={styles.subtitle}>
+            {brand.panelTitle} · {brand.location}
+          </Text>
 
           <View style={styles.card}>
             <Text style={styles.label}>Email</Text>
@@ -252,7 +257,7 @@ export default function AccountScreen() {
             <Ionicons name="help-circle-outline" size={22} color={colors.accent.primary} />
             <View style={styles.actionText}>
               <Text style={styles.actionTitle}>Help & support</Text>
-              <Text style={styles.actionHint}>{brand.website}</Text>
+              <Text style={styles.actionHint}>{brand.websiteDisplay}</Text>
             </View>
             <Ionicons name="open-outline" size={18} color={colors.text.onSurfaceMuted} />
           </Pressable>
@@ -262,7 +267,7 @@ export default function AccountScreen() {
             onPress={callSupport}>
             <Ionicons name="call-outline" size={22} color={colors.accent.primary} />
             <View style={styles.actionText}>
-              <Text style={styles.actionTitle}>Call Fine Shine</Text>
+              <Text style={styles.actionTitle}>Call support</Text>
               <Text style={styles.actionHint}>{brand.phone}</Text>
             </View>
           </Pressable>

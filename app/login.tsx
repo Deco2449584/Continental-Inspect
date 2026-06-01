@@ -83,20 +83,22 @@ export default function LoginScreen() {
             <FineShineLogo width={220} variant="onDark" />
             <Text style={styles.brandName}>{brand.name}</Text>
             <Text style={styles.tagline}>{brand.tagline}</Text>
-            <Text style={styles.panelTitle}>{brand.panelTitle}</Text>
+            <Text style={styles.panelTitle}>
+              {brand.panelTitle} · {brand.location}
+            </Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.cardAccent} />
             <Text style={styles.cardTitle}>Sign in</Text>
-            <Text style={styles.cardHint}>Use your Fine Shine operator credentials</Text>
+            <Text style={styles.cardHint}>Use your {brand.name} operator credentials</Text>
 
             <Text style={styles.label}>Email</Text>
             <TextInput
               style={styles.input}
               value={email}
               onChangeText={setEmail}
-              placeholder="tu@fineshine.com.au"
+              placeholder={`operator@${brand.emailDomain}`}
               placeholderTextColor={loginSurface.textMuted}
               keyboardType="email-address"
               autoCapitalize="none"

@@ -1,4 +1,4 @@
-# Configuración de Firebase (Fine Shine)
+# Configuración de Firebase (Continental Inspect)
 
 La app usa **Firebase Auth**, **Cloud Firestore** y **Firebase Storage** con el SDK web modular (v9+).
 
@@ -23,7 +23,7 @@ EXPO_PUBLIC_FIREBASE_PROJECT_ID=tu_proyecto
 EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=tu_proyecto.firebasestorage.app
 EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=123456789
 EXPO_PUBLIC_FIREBASE_APP_ID=1:123456789:web:abcdef
-EXPO_PUBLIC_ADMIN_EMAILS=admin@fineshine.com.au,otro@empresa.com
+EXPO_PUBLIC_ADMIN_EMAILS=admin@continentalcargo.com.au,otro@empresa.com
 ```
 
 `EXPO_PUBLIC_ADMIN_EMAILS` es una lista separada por comas. Esos correos reciben rol **admin** al iniciar sesión (pestaña Admin, exportar CSV/Excel y PDF).

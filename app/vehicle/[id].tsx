@@ -169,7 +169,7 @@ function createDetailStyles(colors: AppColors) {
       borderRadius: 12,
       borderWidth: 1,
       borderColor: colors.accent.primary,
-      backgroundColor: 'rgba(226, 31, 40, 0.08)',
+      backgroundColor: 'rgba(2, 101, 220, 0.08)',
     },
     footerBtnPressed: {
       opacity: 0.85,
@@ -208,7 +208,7 @@ function createDetailStyles(colors: AppColors) {
       backgroundColor: colors.surface.card,
     },
     footerBtnOutlinePressed: {
-      backgroundColor: 'rgba(226, 31, 40, 0.08)',
+      backgroundColor: 'rgba(2, 101, 220, 0.08)',
     },
     footerBtnOutlineText: {
       fontFamily: fonts.headingSemiBold,

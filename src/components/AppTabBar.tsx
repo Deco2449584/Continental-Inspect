@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { ACCENT_DIM_TAB } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 
@@ -51,7 +52,7 @@ function createTabBarStyles(colors: AppColors) {
       gap: 4,
     },
     tabFocused: {
-      backgroundColor: 'rgba(226, 31, 40, 0.1)',
+      backgroundColor: ACCENT_DIM_TAB,
     },
     tabPressed: {
       opacity: 0.85,

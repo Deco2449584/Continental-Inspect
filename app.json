@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Fine Shine",
+    "name": "Continental Inspect",
     "slug": "fineshine-pro",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,7 +30,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Fine Shine to access the camera to scan the vehicle VIN.",
+          "cameraPermission": "Allow Continental Inspect to access the camera to scan cargo labels and barcodes.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
@@ -38,8 +38,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow Fine Shine to access your photo library to attach photo evidence.",
-          "cameraPermission": "Allow Fine Shine to use the camera to capture photo evidence.",
+          "photosPermission": "Allow Continental Inspect to access your photo library to attach photo evidence.",
+          "cameraPermission": "Allow Continental Inspect to use the camera to capture photo evidence.",
           "microphonePermission": false
         }
       ],

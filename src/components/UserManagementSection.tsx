@@ -23,12 +23,10 @@ import {
     updateUserRole,
     type ManagedUser,
 } from '@/services/userRepository';
+import { ACCENT, ACCENT_DIM, ACCENT_PRESSED } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import type { UserRole } from '@/types/auth';
-
-const RED     = '#E21F28';
-const RED_DIM = 'rgba(226,31,40,0.12)';
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
@@ -52,7 +50,7 @@ function createStyles(colors: AppColors) {
     },
     userAccent: {
       width: 3,
-      backgroundColor: RED,
+      backgroundColor: ACCENT,
     },
     userBody: {
       flex: 1,
@@ -110,15 +108,15 @@ function createStyles(colors: AppColors) {
       paddingVertical: 14,
       borderRadius: 12,
       borderWidth: 1.5,
-      borderColor: RED,
+      borderColor: ACCENT,
       borderStyle: 'dashed',
-      backgroundColor: RED_DIM,
+      backgroundColor: ACCENT_DIM,
     },
     addBtnPressed: { opacity: 0.8 },
     addBtnText: {
       fontFamily: fonts.headingSemiBold,
       fontSize: 15,
-      color: RED,
+      color: ACCENT,
     },
 
     // ── Shared modal shell ───────────────────────────────────────────────────
@@ -139,7 +137,7 @@ function createStyles(colors: AppColors) {
     },
     modalAccent: {
       height: 4,
-      backgroundColor: RED,
+      backgroundColor: ACCENT,
     },
     modalHeader: {
       paddingHorizontal: 24,
@@ -156,7 +154,7 @@ function createStyles(colors: AppColors) {
       width: 36,
       height: 36,
       borderRadius: 10,
-      backgroundColor: RED_DIM,
+      backgroundColor: ACCENT_DIM,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -203,12 +201,12 @@ function createStyles(colors: AppColors) {
       justifyContent: 'center',
     },
     modalConfirmBtnPressed: {
-      backgroundColor: RED_DIM,
+      backgroundColor: ACCENT_DIM,
     },
     modalConfirmText: {
       fontFamily: fonts.headingSemiBold,
       fontSize: 15,
-      color: RED,
+      color: ACCENT,
     },
     // Destructive confirm (red background)
     modalDestructiveBtn: {
@@ -216,10 +214,10 @@ function createStyles(colors: AppColors) {
       paddingVertical: 16,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: RED,
+      backgroundColor: ACCENT,
     },
     modalDestructiveBtnPressed: {
-      backgroundColor: '#B81820',
+      backgroundColor: ACCENT_PRESSED,
     },
     modalDestructiveText: {
       fontFamily: fonts.headingSemiBold,
@@ -247,7 +245,7 @@ function createStyles(colors: AppColors) {
       fontFamily: fonts.body,
       color: colors.text.onSurface,
     },
-    inputFocused: { borderColor: RED },
+    inputFocused: { borderColor: ACCENT },
 
     // ── Role chips ───────────────────────────────────────────────────────────
     roleRow: { flexDirection: 'row', gap: 10 },
@@ -264,15 +262,15 @@ function createStyles(colors: AppColors) {
       backgroundColor: colors.background.secondary,
     },
     roleChipActive: {
-      borderColor: RED,
-      backgroundColor: RED_DIM,
+      borderColor: ACCENT,
+      backgroundColor: ACCENT_DIM,
     },
     roleChipText: {
       fontFamily: fonts.bodySemiBold,
       fontSize: 13,
       color: colors.text.secondary,
     },
-    roleChipTextActive: { color: RED },
+    roleChipTextActive: { color: ACCENT },
 
     // ── Info / error modal body ───────────────────────────────────────────────
     infoBody: {
@@ -284,7 +282,7 @@ function createStyles(colors: AppColors) {
       width: 52,
       height: 52,
       borderRadius: 14,
-      backgroundColor: RED_DIM,
+      backgroundColor: ACCENT_DIM,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -306,11 +304,11 @@ function createStyles(colors: AppColors) {
       alignItems: 'center',
       justifyContent: 'center',
     },
-    infoBtnPressed: { backgroundColor: RED_DIM },
+    infoBtnPressed: { backgroundColor: ACCENT_DIM },
     infoBtnText: {
       fontFamily: fonts.headingSemiBold,
       fontSize: 15,
-      color: RED,
+      color: ACCENT,
     },
   });
 }
@@ -319,7 +317,7 @@ function createStyles(colors: AppColors) {
 
 function roleBadgeStyle(role: UserRole) {
   return role === 'admin'
-    ? { bg: RED_DIM, text: RED }
+    ? { bg: ACCENT_DIM, text: ACCENT }
     : { bg: 'rgba(156,163,175,0.15)', text: '#6B7280' };
 }
 
@@ -348,7 +346,7 @@ function AppInfoModal({
           <View style={styles.modalAccent} />
           <View style={styles.infoBody}>
             <View style={styles.infoIconWrap}>
-              <Ionicons name="alert-circle-outline" size={26} color={RED} />
+              <Ionicons name="alert-circle-outline" size={26} color={ACCENT} />
             </View>
             <Text style={styles.infoTitle}>{state?.title ?? ''}</Text>
             <Text style={styles.infoMessage}>{state?.message ?? ''}</Text>
@@ -394,7 +392,7 @@ function DeleteConfirmModal({
           <View style={styles.modalAccent} />
           <View style={styles.infoBody}>
             <View style={styles.infoIconWrap}>
-              <Ionicons name="trash-outline" size={24} color={RED} />
+              <Ionicons name="trash-outline" size={24} color={ACCENT} />
             </View>
             <Text style={styles.infoTitle}>Delete user</Text>
             <Text style={styles.infoMessage}>
@@ -453,7 +451,7 @@ function RoleSelector({
             <Ionicons
               name={r === 'admin' ? 'shield-checkmark-outline' : 'person-outline'}
               size={15}
-              color={active ? RED : colors.text.secondary}
+              color={active ? ACCENT : colors.text.secondary}
             />
             <Text style={[styles.roleChipText, active && styles.roleChipTextActive]}>
               {getRoleLabel(r)}
@@ -537,7 +535,7 @@ function CreateUserModal({ visible, onClose, onCreated, onError }: CreateModalPr
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleRow}>
               <View style={styles.modalIconWrap}>
-                <Ionicons name="person-add-outline" size={18} color={RED} />
+                <Ionicons name="person-add-outline" size={18} color={ACCENT} />
               </View>
               <Text style={styles.modalTitle}>New user</Text>
             </View>
@@ -597,7 +595,7 @@ function CreateUserModal({ visible, onClose, onCreated, onError }: CreateModalPr
               onPress={handleCreate}
               disabled={isSaving}>
               {isSaving
-                ? <ActivityIndicator color={RED} size="small" />
+                ? <ActivityIndicator color={ACCENT} size="small" />
                 : <Text style={styles.modalConfirmText}>Create</Text>}
             </Pressable>
           </View>
@@ -653,7 +651,7 @@ function EditRoleModal({ user, onClose, onUpdated, onError }: EditRoleModalProps
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleRow}>
               <View style={styles.modalIconWrap}>
-                <Ionicons name="shield-outline" size={18} color={RED} />
+                <Ionicons name="shield-outline" size={18} color={ACCENT} />
               </View>
               <Text style={styles.modalTitle}>Edit role</Text>
             </View>
@@ -680,7 +678,7 @@ function EditRoleModal({ user, onClose, onUpdated, onError }: EditRoleModalProps
               onPress={handleSave}
               disabled={isSaving}>
               {isSaving
-                ? <ActivityIndicator color={RED} size="small" />
+                ? <ActivityIndicator color={ACCENT} size="small" />
                 : <Text style={styles.modalConfirmText}>Save</Text>}
             </Pressable>
           </View>
@@ -773,7 +771,7 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
 
       {isLoading ? (
         <View style={styles.emptyBox}>
-          <ActivityIndicator color={RED} />
+          <ActivityIndicator color={ACCENT} />
         </View>
       ) : users.length === 0 ? (
         <View style={styles.emptyBox}>
@@ -799,7 +797,7 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
                   <Pressable
                     style={({ pressed }) => [
                       styles.iconBtn,
-                      { backgroundColor: pressed ? RED_DIM : 'transparent' },
+                      { backgroundColor: pressed ? ACCENT_DIM : 'transparent' },
                     ]}
                     onPress={() => setEditingUser(user)}>
                     <Ionicons name="create-outline" size={19} color={colors.accent.primary} />
@@ -807,7 +805,7 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
                   <Pressable
                     style={({ pressed }) => [
                       styles.iconBtn,
-                      { backgroundColor: pressed ? RED_DIM : 'transparent' },
+                      { backgroundColor: pressed ? ACCENT_DIM : 'transparent' },
                     ]}
                     onPress={() => requestDelete(user)}>
                     <Ionicons name="trash-outline" size={19} color={colors.text.onSurfaceMuted} />
@@ -822,7 +820,7 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
       <Pressable
         style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
         onPress={() => setShowCreate(true)}>
-        <Ionicons name="person-add-outline" size={18} color={RED} />
+        <Ionicons name="person-add-outline" size={18} color={ACCENT} />
         <Text style={styles.addBtnText}>Add user</Text>
       </Pressable>
 

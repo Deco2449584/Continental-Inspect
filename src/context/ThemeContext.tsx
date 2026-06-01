@@ -12,7 +12,7 @@ import {
 import type { AppColors, ColorScheme } from '@/theme/palettes';
 import { getPalette } from '@/theme/palettes';
 
-const STORAGE_KEY = '@fineshine/color-scheme';
+const STORAGE_KEY = '@continentalinspect/color-scheme';
 
 type ThemeContextValue = {
   colorScheme: ColorScheme;

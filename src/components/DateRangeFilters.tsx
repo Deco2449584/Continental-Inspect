@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { ACCENT, ACCENT_DIM_MEDIUM, ACCENT_DIM_SOFT } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import {
@@ -34,10 +35,6 @@ const MONTHS = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
-
-const RED       = '#E21F28';
-const RED_DIM   = 'rgba(226,31,40,0.14)';
-const RED_RANGE = 'rgba(226,31,40,0.08)';
 
 // ─── Styles (all surface/border/text colors come from the theme) ──────────────
 
@@ -77,8 +74,8 @@ function createStyles(colors: AppColors) {
       backgroundColor: colors.surface.card,
     },
     chipActive: {
-      borderColor: RED,
-      backgroundColor: RED_DIM,
+      borderColor: ACCENT,
+      backgroundColor: ACCENT_DIM_MEDIUM,
     },
     chipText: {
       fontFamily: fonts.bodyMedium,
@@ -86,7 +83,7 @@ function createStyles(colors: AppColors) {
       color: colors.text.secondary,
     },
     chipTextActive: {
-      color: RED,
+      color: ACCENT,
       fontFamily: fonts.bodySemiBold,
     },
 
@@ -118,8 +115,8 @@ function createStyles(colors: AppColors) {
       backgroundColor: colors.surface.card,
     },
     dateBtnActive: {
-      borderColor: RED,
-      backgroundColor: RED_DIM,
+      borderColor: ACCENT,
+      backgroundColor: ACCENT_DIM_MEDIUM,
     },
     dateBtnText: {
       flex: 1,
@@ -128,7 +125,7 @@ function createStyles(colors: AppColors) {
       color: colors.text.onSurface,
     },
     dateBtnTextActive: {
-      color: RED,
+      color: ACCENT,
     },
 
     // ── Calendar card ────────────────────────────────────────────────────────
@@ -175,7 +172,7 @@ function createStyles(colors: AppColors) {
       textAlign: 'center',
       fontSize: 11,
       fontWeight: '700',
-      color: RED,
+      color: ACCENT,
       letterSpacing: 0.6,
       textTransform: 'uppercase',
     },
@@ -195,7 +192,7 @@ function createStyles(colors: AppColors) {
       borderRadius: 8,
     },
     calDayInRange: {
-      backgroundColor: RED_RANGE,
+      backgroundColor: ACCENT_DIM_SOFT,
       borderRadius: 0,
     },
     calDayRangeStart: {
@@ -211,12 +208,12 @@ function createStyles(colors: AppColors) {
       borderBottomLeftRadius: 0,
     },
     calDaySelected: {
-      backgroundColor: RED,
+      backgroundColor: ACCENT,
       borderRadius: 8,
     },
     calDayToday: {
       borderWidth: 1,
-      borderColor: RED,
+      borderColor: ACCENT,
       borderRadius: 8,
     },
     calDayText: {
@@ -232,7 +229,7 @@ function createStyles(colors: AppColors) {
       color: colors.text.onSurfaceMuted,
     },
     calDayTextToday: {
-      color: RED,
+      color: ACCENT,
       fontWeight: '700',
     },
     calDayEmpty: {
@@ -243,7 +240,7 @@ function createStyles(colors: AppColors) {
       textAlign: 'center',
       fontSize: 12,
       fontWeight: '600',
-      color: RED,
+      color: ACCENT,
       letterSpacing: 0.4,
       textTransform: 'uppercase',
       paddingTop: 10,
@@ -431,7 +428,7 @@ export function DateRangeFilters({
               <Ionicons
                 name={item.icon as any}
                 size={14}
-                color={active ? RED : colors.text.secondary}
+                color={active ? ACCENT : colors.text.secondary}
               />
               <Text style={[styles.chipText, active && styles.chipTextActive]}>
                 {item.label}
@@ -456,7 +453,7 @@ export function DateRangeFilters({
                   <Ionicons
                     name="calendar"
                     size={17}
-                    color={isActive ? RED : colors.text.onSurfaceMuted}
+                    color={isActive ? ACCENT : colors.text.onSurfaceMuted}
                   />
                   <Text style={[styles.dateBtnText, isActive && styles.dateBtnTextActive]}>
                     {formatFilterDate(date)}
@@ -464,7 +461,7 @@ export function DateRangeFilters({
                   <Ionicons
                     name={isActive ? 'chevron-up' : 'chevron-down'}
                     size={14}
-                    color={isActive ? RED : colors.text.onSurfaceMuted}
+                    color={isActive ? ACCENT : colors.text.onSurfaceMuted}
                   />
                 </Pressable>
               </View>

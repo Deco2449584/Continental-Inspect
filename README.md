@@ -1,11 +1,11 @@
-# Fine Shine - Enterprise Vehicle Inspection App 🚗✨
+# Continental Inspect — Warehouse Cargo Control
 
 ![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
 ![Expo](https://img.shields.io/badge/Expo-1B1F23?style=for-the-badge&logo=expo&logoColor=white)
 ![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=for-the-badge&logo=typescript&logoColor=white)
 
-Fine Shine is a comprehensive B2B mobile application designed to digitize and automate the high-volume vehicle inspection, detailing, and logistics workflows. Built for efficiency, it replaces manual paperwork with a lightning-fast digital ecosystem featuring smart VIN scanning, real-time cloud syncing, and detailed reporting.
+Continental Inspect is a B2B mobile application for **Continental Cargo** warehouse and export-terminal operations at Sydney Airport. It digitizes cargo intake, scanning, and record keeping with real-time cloud sync and reporting. (Phase 1 rebranding; vehicle-centric flows are being migrated in later phases.)
 
 ## 🌟 Key Features
 

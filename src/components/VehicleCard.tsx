@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from '@/context/ThemeContext';
 import { useVehicleCatalog } from '@/context/VehicleCatalogContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { ACCENT, ACCENT_DIM } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import type { Vehicle } from '@/types';
@@ -17,8 +18,6 @@ type VehicleCardProps = {
 };
 
 const THUMB = 56;
-const RED = '#E21F28';
-
 function createStyles(colors: AppColors) {
   return StyleSheet.create({
     card: {
@@ -43,7 +42,7 @@ function createStyles(colors: AppColors) {
     // ── Red accent bar on the left ──────────────────────────────────────────
     accentBar: {
       width: 3,
-      backgroundColor: RED,
+      backgroundColor: ACCENT,
     },
 
     // ── Main content ────────────────────────────────────────────────────────
@@ -73,7 +72,7 @@ function createStyles(colors: AppColors) {
       width: THUMB,
       height: THUMB,
       borderRadius: 10,
-      backgroundColor: 'rgba(226,31,40,0.10)',
+      backgroundColor: ACCENT_DIM,
       alignItems: 'center',
       justifyContent: 'center',
     },

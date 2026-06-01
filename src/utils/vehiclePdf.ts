@@ -1,13 +1,14 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+import { ACCENT } from '@/theme/accent';
 import { brand } from '@/theme/brand';
 import type { Vehicle } from '@/types';
 import { formatVehicleDate } from '@/utils/formatDate';
 import { getTypeLabel } from '@/utils/vehicleLabels';
 
 // Brand colours
-const RED = '#E21F28';
+const BRAND_ACCENT = ACCENT;
 const BLACK = '#0A0A0A';
 const DARK = '#1A1A1A';
 const MUTED = '#6B7280';
@@ -91,7 +92,7 @@ function buildVehicleHtml(vehicle: Vehicle): string {
       color: #fff;
       letter-spacing: -0.3px;
     }
-    .header-brand span { color: ${RED}; }
+    .header-brand span { color: ${BRAND_ACCENT}; }
     .header-tagline {
       font-size: 11px;
       color: #9CA3AF;
@@ -99,7 +100,7 @@ function buildVehicleHtml(vehicle: Vehicle): string {
       text-transform: uppercase;
     }
     .header-badge {
-      background: ${RED};
+      background: ${BRAND_ACCENT};
       color: #fff;
       font-size: 10px;
       font-weight: 700;
@@ -112,7 +113,7 @@ function buildVehicleHtml(vehicle: Vehicle): string {
     /* ── Red accent bar ── */
     .accent-bar {
       height: 4px;
-      background: linear-gradient(90deg, ${RED} 0%, #ff6b6b 100%);
+      background: linear-gradient(90deg, ${BRAND_ACCENT} 0%, #4A9AE8 100%);
     }
 
     /* ── Hero section ── */
@@ -140,15 +141,15 @@ function buildVehicleHtml(vehicle: Vehicle): string {
     }
     .type-badge {
       display: inline-block;
-      background: rgba(226,31,40,0.1);
-      color: ${RED};
+      background: rgba(2,101,220,0.1);
+      color: ${BRAND_ACCENT};
       font-size: 11px;
       font-weight: 700;
       letter-spacing: 0.5px;
       text-transform: uppercase;
       padding: 4px 12px;
       border-radius: 20px;
-      border: 1px solid rgba(226,31,40,0.25);
+      border: 1px solid rgba(2,101,220,0.25);
       margin-top: 10px;
     }
 
@@ -160,12 +161,12 @@ function buildVehicleHtml(vehicle: Vehicle): string {
     .section-title {
       font-size: 10px;
       font-weight: 700;
-      color: ${RED};
+      color: ${BRAND_ACCENT};
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 14px;
       padding-bottom: 6px;
-      border-bottom: 2px solid ${RED};
+      border-bottom: 2px solid ${BRAND_ACCENT};
       display: inline-block;
     }
 
@@ -199,12 +200,12 @@ function buildVehicleHtml(vehicle: Vehicle): string {
       margin-bottom: 10px;
     }
     .comment-block-append {
-      border-left-color: ${RED};
+      border-left-color: ${BRAND_ACCENT};
     }
     .comment-block-badge {
       display: inline-block;
-      background: rgba(226,31,40,0.1);
-      color: ${RED};
+      background: rgba(2,101,220,0.1);
+      color: ${BRAND_ACCENT};
       font-size: 10px;
       font-weight: 700;
       text-transform: uppercase;
@@ -271,7 +272,7 @@ function buildVehicleHtml(vehicle: Vehicle): string {
     .footer-brand {
       font-size: 11px;
       font-weight: 700;
-      color: ${RED};
+      color: ${BRAND_ACCENT};
     }
   </style>
 </head>
@@ -331,7 +332,7 @@ function buildVehicleHtml(vehicle: Vehicle): string {
   <!-- Footer -->
   <div class="footer">
     <div class="footer-left">
-      <div class="footer-brand">Fine Shine</div>
+      <div class="footer-brand">${escapeHtml(brand.name)}</div>
       <div>${escapeHtml(brand.location)}</div>
       <div>${escapeHtml(brand.license)}</div>
     </div>
