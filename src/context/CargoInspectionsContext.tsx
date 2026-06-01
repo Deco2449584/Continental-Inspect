@@ -10,14 +10,16 @@ import {
 
 import { useAuth } from '@/context/AuthContext';
 import {
-  createCargoInspection,
-  deleteCargoInspection,
-  fetchCargoInspectionByUldId,
-  findCargoInspectionByUldId,
-  subscribeToAllCargoInspections,
-  subscribeToUserCargoInspections,
-  updateCargoInspection,
+    createCargoInspection,
+    deleteCargoInspection,
+    fetchCargoInspectionByUldId,
+    findCargoInspectionByUldId,
+    markCargoInspectionAsLoaded,
+    subscribeToAllCargoInspections,
+    subscribeToUserCargoInspections,
+    updateCargoInspection,
 } from '@/services/cargoInspectionRepository';
+import { resolveInspectionStatus } from '@/utils/cargoInspectionStatus';
 import { isFirebaseConfigured } from '@/services/firebaseConfig';
 import type {
   CargoInspection,
@@ -40,6 +42,7 @@ type CargoInspectionsContextValue = {
     inspectionId: string,
     input: UpdateCargoInspectionInput,
   ) => Promise<CargoInspection>;
+  markInspectionAsLoaded: (inspectionId: string) => Promise<CargoInspection>;
   deleteInspectionById: (inspectionId: string) => Promise<void>;
 };
 
@@ -165,6 +168,7 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
         inspectionId,
         input,
         user.email ?? existing.createdBy,
+        resolveInspectionStatus(existing),
       );
 
       const updated: CargoInspection = {
@@ -176,9 +180,43 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
         weightKg: input.weightKg,
         boxCount: input.boxCount,
         hasIssues: input.hasIssues,
+        status: resolveInspectionStatus(existing),
         issueDescription: input.hasIssues ? input.issueDescription?.trim() : undefined,
         photoEvidence,
         videoEvidence,
+        updatedAt: updatedAtIso,
+      };
+
+      setInspections((prev) =>
+        prev
+          .map((item) => (item.id === inspectionId ? updated : item))
+          .sort(
+            (a, b) =>
+              new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
+          ),
+      );
+
+      return updated;
+    },
+    [user, inspections],
+  );
+
+  const markInspectionAsLoaded = useCallback(
+    async (inspectionId: string): Promise<CargoInspection> => {
+      if (!user) {
+        throw new Error('You must be signed in to update a record.');
+      }
+
+      const existing = inspections.find((item) => item.id === inspectionId);
+      if (!existing) {
+        throw new Error('Cargo inspection not found.');
+      }
+
+      const updatedAtIso = await markCargoInspectionAsLoaded(inspectionId);
+
+      const updated: CargoInspection = {
+        ...existing,
+        status: 'loaded',
         updatedAt: updatedAtIso,
       };
 
@@ -219,6 +257,7 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
       refreshRecords,
       addInspection,
       updateInspectionById,
+      markInspectionAsLoaded,
       deleteInspectionById,
     }),
     [
@@ -231,6 +270,7 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
       refreshRecords,
       addInspection,
       updateInspectionById,
+      markInspectionAsLoaded,
       deleteInspectionById,
     ],
   );

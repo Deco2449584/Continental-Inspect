@@ -19,7 +19,6 @@ type DonutSegment = {
 type TodayOperationsDonutProps = {
   newCargo: number;
   loaded: number;
-  requiresAttention: number;
 };
 
 const SIZE = 168;
@@ -68,6 +67,7 @@ function createStyles(colors: AppColors) {
       fontSize: 11,
       color: colors.text.onSurfaceMuted,
       marginTop: 2,
+      textAlign: 'center',
     },
     legend: {
       marginTop: 16,
@@ -105,22 +105,18 @@ function createStyles(colors: AppColors) {
   });
 }
 
-export function TodayOperationsDonut({
-  newCargo,
-  loaded,
-  requiresAttention,
-}: TodayOperationsDonutProps) {
+export function TodayOperationsDonut({ newCargo, loaded }: TodayOperationsDonutProps) {
   const styles = useThemedStyles(createStyles);
 
   const segments = useMemo<DonutSegment[]>(
     () => [
-      { label: 'Loaded', value: loaded, color: METRIC_LOADED },
-      { label: 'Requires attention', value: requiresAttention, color: METRIC_ATTENTION },
+      { label: 'New in warehouse', value: newCargo, color: METRIC_NEW_CARGO },
+      { label: 'Loaded / dispatched', value: loaded, color: METRIC_LOADED },
     ],
-    [loaded, requiresAttention],
+    [loaded, newCargo],
   );
 
-  const total = loaded + requiresAttention;
+  const total = newCargo + loaded;
   const isEmpty = total === 0;
 
   const arcs = useMemo(() => {
@@ -141,11 +137,11 @@ export function TodayOperationsDonut({
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>Today&apos;s operation mix</Text>
+      <Text style={styles.title}>Warehouse mix today</Text>
 
       {isEmpty ? (
         <Text style={styles.emptyHint}>
-          No inspections registered today yet. Scan a ULD to see the breakdown here.
+          No new or loaded cargo today yet. Scan a ULD to see the breakdown here.
         </Text>
       ) : (
         <>
@@ -177,17 +173,12 @@ export function TodayOperationsDonut({
               </G>
             </Svg>
             <View style={styles.centerOverlay} pointerEvents="none">
-              <Text style={styles.centerValue}>{newCargo}</Text>
-              <Text style={styles.centerLabel}>New cargo</Text>
+              <Text style={styles.centerValue}>{total}</Text>
+              <Text style={styles.centerLabel}>New + Loaded</Text>
             </View>
           </View>
 
           <View style={styles.legend}>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: METRIC_NEW_CARGO }]} />
-              <Text style={styles.legendText}>New cargo (total today)</Text>
-              <Text style={styles.legendValue}>{newCargo}</Text>
-            </View>
             {segments.map((segment) => {
               const pct = total > 0 ? Math.round((segment.value / total) * 100) : 0;
               return (

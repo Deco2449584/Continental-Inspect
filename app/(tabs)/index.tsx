@@ -28,17 +28,8 @@ import { getRoleLabel } from '@/services/userRepository';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
-import type { CargoInspection } from '@/types';
+import { countTodayDashboardMetrics } from '@/utils/cargoInspectionStatus';
 import { filterInspectionsToday, formatFilterDate, getTodayRange } from '@/utils/filterInspections';
-
-function countTodayMetrics(inspections: CargoInspection[]) {
-  const today = filterInspectionsToday(inspections);
-  return {
-    newCargo: today.length,
-    loaded: today.filter((item) => !item.hasIssues).length,
-    requiresAttention: today.filter((item) => item.hasIssues).length,
-  };
-}
 
 function createIndexStyles(colors: AppColors) {
   return StyleSheet.create({
@@ -60,36 +51,36 @@ function createIndexStyles(colors: AppColors) {
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: 18,
-      gap: 12,
+      marginBottom: 14,
+      gap: 10,
+      minHeight: 44,
+    },
+    headerText: {
+      flex: 1,
+      justifyContent: 'center',
+      gap: 1,
+      paddingRight: 8,
     },
     headerLogo: {
       flexShrink: 0,
     },
-    headerText: {
-      flex: 1,
-      alignItems: 'flex-end',
-      gap: 2,
-    },
     greeting: {
       fontFamily: fonts.heading,
-      fontSize: 22,
+      fontSize: 20,
       color: colors.text.primary,
-      textAlign: 'right',
+      lineHeight: 24,
     },
     headerSubtitle: {
       fontFamily: fonts.body,
-      fontSize: 12,
+      fontSize: 11,
       color: colors.text.secondary,
-      textAlign: 'right',
-      lineHeight: 16,
+      lineHeight: 14,
     },
     adminBadge: {
       fontFamily: fonts.bodyMedium,
-      fontSize: 11,
+      fontSize: 10,
       color: colors.text.mutedOnDark,
-      textAlign: 'right',
-      marginTop: 2,
+      lineHeight: 13,
     },
     statsRow: {
       flexDirection: 'row',
@@ -168,7 +159,7 @@ export default function RecordsScreen() {
     [inspections],
   );
 
-  const counts = useMemo(() => countTodayMetrics(inspections), [inspections]);
+  const counts = useMemo(() => countTodayDashboardMetrics(inspections), [inspections]);
 
   const isLoading = authLoading || inspectionsLoading;
   const greetingName = user?.email?.split('@')[0] ?? 'Operator';
@@ -207,12 +198,11 @@ export default function RecordsScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.headerBlock}>
-              <ContinentalInspectLogo width={112} style={styles.headerLogo} />
               <View style={styles.headerText}>
                 <Text style={styles.greeting} numberOfLines={1}>
                   Hi, {greetingName}
                 </Text>
-                <Text style={styles.headerSubtitle} numberOfLines={2}>
+                <Text style={styles.headerSubtitle} numberOfLines={1}>
                   {brand.panelTitle}
                 </Text>
                 {isAdmin ? (
@@ -221,6 +211,7 @@ export default function RecordsScreen() {
                   </Text>
                 ) : null}
               </View>
+              <ContinentalInspectLogo width={100} style={styles.headerLogo} />
             </View>
 
             <View style={styles.statsRow}>
@@ -244,11 +235,7 @@ export default function RecordsScreen() {
               />
             </View>
 
-            <TodayOperationsDonut
-              newCargo={counts.newCargo}
-              loaded={counts.loaded}
-              requiresAttention={counts.requiresAttention}
-            />
+            <TodayOperationsDonut newCargo={counts.newCargo} loaded={counts.loaded} />
 
             {inspectionsError ? (
               <Text style={styles.errorBanner}>

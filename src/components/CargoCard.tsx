@@ -8,7 +8,9 @@ import { ACCENT, ACCENT_DIM } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import type { CargoInspection } from '@/types';
+import { METRIC_ATTENTION, METRIC_LOADED, METRIC_NEW_CARGO } from '@/components/TodayOperationsDonut';
 import { getConservationLabel } from '@/utils/cargoLabels';
+import { resolveInspectionStatus } from '@/utils/cargoInspectionStatus';
 import { formatInspectionDate } from '@/utils/formatDate';
 
 type CargoCardProps = {
@@ -147,10 +149,20 @@ export function CargoCard({ inspection, onPress }: CargoCardProps) {
     ? formatInspectionDate(inspection.updatedAt)
     : formatInspectionDate(inspection.registeredAt);
 
-  const loaded = !inspection.hasIssues;
-  const statusBg = loaded ? `${colors.accent.primary}22` : 'rgba(245, 158, 11, 0.22)';
-  const statusColor = loaded ? colors.accent.primary : colors.semantic.warning;
-  const statusLabel = loaded ? 'LOADED' : 'REQUIRES ATTENTION';
+  const operationalStatus = resolveInspectionStatus(inspection);
+  let statusBg = `${METRIC_LOADED}22`;
+  let statusColor = METRIC_LOADED;
+  let statusLabel = 'LOADED';
+
+  if (inspection.hasIssues) {
+    statusBg = `${METRIC_ATTENTION}22`;
+    statusColor = METRIC_ATTENTION;
+    statusLabel = 'REQUIRES ATTENTION';
+  } else if (operationalStatus === 'new') {
+    statusBg = `${METRIC_NEW_CARGO}22`;
+    statusColor = METRIC_NEW_CARGO;
+    statusLabel = 'NEW';
+  }
 
   return (
     <Pressable

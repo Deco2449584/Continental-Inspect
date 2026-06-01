@@ -20,12 +20,14 @@ import {
 } from '@/services/cargoInspectionStorage';
 import { db } from '@/services/firebaseConfig';
 import type {
-  CargoInspection,
-  ConservationType,
-  NewCargoInspectionInput,
-  UpdateCargoInspectionInput,
+    CargoInspection,
+    CargoInspectionStatus,
+    ConservationType,
+    NewCargoInspectionInput,
+    UpdateCargoInspectionInput,
 } from '@/types';
 import { normalizeConservationType } from '@/types';
+import { normalizeInspectionStatus } from '@/utils/cargoInspectionStatus';
 import { normalizeUldId } from '@/utils/uldId';
 
 export const CARGO_INSPECTIONS_COLLECTION = 'cargo_inspections';
@@ -39,6 +41,7 @@ export type CargoInspectionDocument = {
   weightKg: number;
   boxCount: number;
   hasIssues: boolean;
+  status?: CargoInspectionStatus | string;
   issueDescription: string;
   photoEvidence: string[];
   videoEvidence: string[];
@@ -92,6 +95,7 @@ function mapDocumentToCargoInspection(
     weightKg: data.weightKg ?? 0,
     boxCount: data.boxCount ?? 0,
     hasIssues: Boolean(data.hasIssues),
+    status: normalizeInspectionStatus(data.status),
     issueDescription: issueDescription || undefined,
     photoEvidence: data.photoEvidence ?? [],
     videoEvidence: data.videoEvidence ?? [],
@@ -106,6 +110,7 @@ function buildFirestorePayload(
   photoEvidence: string[],
   videoEvidence: string[],
   createdBy: string,
+  status: CargoInspectionStatus,
 ): Omit<CargoInspectionDocument, 'registeredAt' | 'registeredAtIso' | 'updatedAt' | 'updatedAtIso' | 'userId'> {
   const issueDescription = input.hasIssues ? (input.issueDescription ?? '').trim() : '';
   return {
@@ -116,6 +121,7 @@ function buildFirestorePayload(
     weightKg: input.weightKg,
     boxCount: input.boxCount,
     hasIssues: input.hasIssues,
+    status,
     issueDescription,
     photoEvidence,
     videoEvidence,
@@ -236,7 +242,13 @@ export async function createCargoInspection(
       : [];
 
   const registeredAtIso = new Date().toISOString();
-  const payload = buildFirestorePayload(input, photoEvidence, videoEvidence, createdByEmail);
+  const payload = buildFirestorePayload(
+    input,
+    photoEvidence,
+    videoEvidence,
+    createdByEmail,
+    'new',
+  );
 
   await setDoc(inspectionRef, {
     userId,
@@ -258,6 +270,7 @@ export async function updateCargoInspection(
   inspectionId: string,
   input: UpdateCargoInspectionInput,
   createdByEmail: string,
+  existingStatus: CargoInspectionStatus,
 ): Promise<{ photoEvidence: string[]; videoEvidence: string[]; updatedAtIso: string }> {
   if (!db) {
     throw new Error('Firestore is not configured.');
@@ -275,7 +288,13 @@ export async function updateCargoInspection(
   );
 
   const updatedAtIso = new Date().toISOString();
-  const payload = buildFirestorePayload(input, photoEvidence, videoEvidence, createdByEmail);
+  const payload = buildFirestorePayload(
+    input,
+    photoEvidence,
+    videoEvidence,
+    createdByEmail,
+    existingStatus,
+  );
 
   await updateDoc(doc(db, CARGO_INSPECTIONS_COLLECTION, inspectionId), {
     ...payload,
@@ -284,6 +303,23 @@ export async function updateCargoInspection(
   });
 
   return { photoEvidence, videoEvidence, updatedAtIso };
+}
+
+export async function markCargoInspectionAsLoaded(
+  inspectionId: string,
+): Promise<string> {
+  if (!db) {
+    throw new Error('Firestore is not configured.');
+  }
+
+  const updatedAtIso = new Date().toISOString();
+  await updateDoc(doc(db, CARGO_INSPECTIONS_COLLECTION, inspectionId), {
+    status: 'loaded',
+    updatedAt: serverTimestamp(),
+    updatedAtIso,
+  });
+
+  return updatedAtIso;
 }
 
 export async function deleteCargoInspection(inspectionId: string): Promise<void> {

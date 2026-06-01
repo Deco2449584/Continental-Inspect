@@ -22,6 +22,8 @@ export function normalizeConservationType(value: string | undefined): Conservati
   return LEGACY_CONSERVATION_MAP[trimmed] ?? 'Ambient';
 }
 
+export type CargoInspectionStatus = 'new' | 'loaded';
+
 export interface CargoInspection {
   id: string;
   uldId: string;
@@ -30,6 +32,7 @@ export interface CargoInspection {
   foodType: string;
   weightKg: number;
   boxCount: number;
+  status: CargoInspectionStatus;
   hasIssues: boolean;
   issueDescription?: string;
   photoEvidence: string[];
@@ -41,7 +44,7 @@ export interface CargoInspection {
 
 export type NewCargoInspectionInput = Omit<
   CargoInspection,
-  'id' | 'registeredAt' | 'updatedAt' | 'createdBy'
+  'id' | 'status' | 'registeredAt' | 'updatedAt' | 'createdBy'
 >;
 
 export type UpdateCargoInspectionInput = NewCargoInspectionInput;

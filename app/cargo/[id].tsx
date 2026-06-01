@@ -23,8 +23,10 @@ import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
+import { METRIC_LOADED, METRIC_NEW_CARGO } from '@/components/TodayOperationsDonut';
 import { shareCargoInspectionPdf } from '@/utils/cargoInspectionPdf';
 import { getConservationLabel } from '@/utils/cargoLabels';
+import { resolveInspectionStatus } from '@/utils/cargoInspectionStatus';
 import { formatInspectionDate } from '@/utils/formatDate';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -147,6 +149,41 @@ function createDetailStyles(colors: AppColors) {
       fontSize: 15,
       color: colors.accent.primary,
     },
+    dispatchBtn: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 14,
+      paddingHorizontal: 16,
+      borderRadius: 12,
+      backgroundColor: METRIC_LOADED,
+    },
+    dispatchBtnPressed: { opacity: 0.88 },
+    dispatchBtnDisabled: { opacity: 0.6 },
+    dispatchBtnText: {
+      fontFamily: fonts.headingSemiBold,
+      fontSize: 16,
+      color: '#FFFFFF',
+    },
+    fullyLoadedBadge: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      paddingHorizontal: 12,
+      paddingVertical: 8,
+      borderRadius: 8,
+      backgroundColor: `${METRIC_LOADED}22`,
+      marginTop: 4,
+    },
+    fullyLoadedText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: 12,
+      color: METRIC_LOADED,
+      letterSpacing: 0.3,
+      textTransform: 'uppercase',
+    },
   });
 }
 
@@ -174,8 +211,9 @@ export default function CargoDetailScreen() {
   const styles = useThemedStyles(createDetailStyles);
   const { id } = useLocalSearchParams<{ id: string }>();
   const { isAdmin } = useAuth();
-  const { inspections, isLoading } = useCargoInspections();
+  const { inspections, isLoading, markInspectionAsLoaded } = useCargoInspections();
   const [isPdfLoading, setIsPdfLoading] = useState(false);
+  const [isMarkingLoaded, setIsMarkingLoaded] = useState(false);
 
   const inspection = useMemo(
     () => inspections.find((item) => item.id === id),
@@ -188,6 +226,22 @@ export default function CargoDetailScreen() {
       pathname: '/scanner',
       params: { editId: inspection.id },
     } as Href);
+  };
+
+  const handleMarkAsLoaded = async () => {
+    if (!inspection) return;
+    setIsMarkingLoaded(true);
+    try {
+      await markInspectionAsLoaded(inspection.id);
+      Alert.alert(
+        'Cargo dispatched',
+        `${inspection.uldId} has been marked as fully loaded.`,
+      );
+    } catch {
+      Alert.alert('Update failed', 'Could not mark this container as loaded. Please try again.');
+    } finally {
+      setIsMarkingLoaded(false);
+    }
   };
 
   const handleExportPdf = async () => {
@@ -224,10 +278,22 @@ export default function CargoDetailScreen() {
     );
   }
 
-  const loaded = !inspection.hasIssues;
-  const statusBg = loaded ? `${colors.accent.primary}22` : 'rgba(245, 158, 11, 0.22)';
-  const statusColor = loaded ? colors.accent.primary : colors.semantic.warning;
-  const statusLabel = loaded ? 'LOADED' : 'REQUIRES ATTENTION';
+  const operationalStatus = resolveInspectionStatus(inspection);
+  const isNewInWarehouse = operationalStatus === 'new';
+  const isFullyLoaded = operationalStatus === 'loaded' && !inspection.hasIssues;
+
+  let statusBg = `${METRIC_NEW_CARGO}22`;
+  let statusColor = METRIC_NEW_CARGO;
+  let statusLabel = 'NEW IN WAREHOUSE';
+  let showLifecycleBadge = isNewInWarehouse || inspection.hasIssues;
+
+  if (inspection.hasIssues) {
+    statusBg = 'rgba(245, 158, 11, 0.22)';
+    statusColor = colors.semantic.warning;
+    statusLabel = 'REQUIRES ATTENTION';
+  } else if (!isNewInWarehouse) {
+    showLifecycleBadge = false;
+  }
 
   return (
     <>
@@ -257,9 +323,17 @@ export default function CargoDetailScreen() {
           <View style={styles.heroCard}>
             <Text style={styles.heroUld}>{inspection.uldId}</Text>
             <Text style={styles.heroAwb}>AWB {inspection.awbNumber}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-              <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
-            </View>
+            {showLifecycleBadge ? (
+              <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+                <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+              </View>
+            ) : null}
+            {isFullyLoaded ? (
+              <View style={styles.fullyLoadedBadge}>
+                <Ionicons name="checkmark-circle" size={16} color={METRIC_LOADED} />
+                <Text style={styles.fullyLoadedText}>Fully Loaded</Text>
+              </View>
+            ) : null}
             <Text style={styles.heroMeta}>
               Registered {formatInspectionDate(inspection.registeredAt)}
               {inspection.updatedAt
@@ -267,6 +341,23 @@ export default function CargoDetailScreen() {
                 : ''}
             </Text>
           </View>
+
+          {isNewInWarehouse ? (
+            <Pressable
+              style={({ pressed }) => [
+                styles.dispatchBtn,
+                pressed && !isMarkingLoaded && styles.dispatchBtnPressed,
+                isMarkingLoaded && styles.dispatchBtnDisabled,
+              ]}
+              onPress={handleMarkAsLoaded}
+              disabled={isMarkingLoaded}>
+              {isMarkingLoaded ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.dispatchBtnText}>✈️ Mark as Loaded</Text>
+              )}
+            </Pressable>
+          ) : null}
 
           <Pressable
             style={({ pressed }) => [
