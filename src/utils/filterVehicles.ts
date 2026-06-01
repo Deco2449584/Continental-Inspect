@@ -1,115 +1,99 @@
-import type { Vehicle } from '@/types';
+import type { CargoInspection } from '@/types';
 
 export type DateFilterPreset = 'day' | 'week' | 'month' | 'custom';
 
+export type DateRange = {
+  from: Date;
+  to: Date;
+};
+
 export function startOfDay(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
 }
 
 export function endOfDay(date: Date): Date {
-  const copy = new Date(date);
-  copy.setHours(23, 59, 59, 999);
-  return copy;
+  const d = new Date(date);
+  d.setHours(23, 59, 59, 999);
+  return d;
 }
 
-export function startOfWeek(reference: Date = new Date()): Date {
+export function getTodayRange(): DateRange {
+  const now = new Date();
+  return { from: startOfDay(now), to: endOfDay(now) };
+}
+
+export function getWeekRange(reference = new Date()): DateRange {
   const day = reference.getDay();
-  const diff = day === 0 ? 6 : day - 1;
+  const diffToMonday = day === 0 ? -6 : 1 - day;
   const monday = new Date(reference);
-  monday.setDate(reference.getDate() - diff);
-  return startOfDay(monday);
-}
-
-export function endOfWeek(reference: Date = new Date()): Date {
-  const monday = startOfWeek(reference);
+  monday.setDate(reference.getDate() + diffToMonday);
   const sunday = new Date(monday);
   sunday.setDate(monday.getDate() + 6);
-  return endOfDay(sunday);
+  return { from: startOfDay(monday), to: endOfDay(sunday) };
 }
 
-export function startOfMonth(reference: Date = new Date()): Date {
-  return startOfDay(new Date(reference.getFullYear(), reference.getMonth(), 1));
-}
-
-export function endOfMonth(reference: Date = new Date()): Date {
-  return endOfDay(new Date(reference.getFullYear(), reference.getMonth() + 1, 0));
-}
-
-export function getTodayRange(reference: Date = new Date()): { from: Date; to: Date } {
-  return { from: startOfDay(reference), to: endOfDay(reference) };
-}
-
-export function getDateRangeForPreset(
-  preset: DateFilterPreset,
-  customFrom: Date | null,
-  customTo: Date | null,
-  reference: Date = new Date(),
-): { from: Date | null; to: Date | null } {
-  switch (preset) {
-    case 'day':
-      return getTodayRange(reference);
-    case 'week':
-      return { from: startOfWeek(reference), to: endOfWeek(reference) };
-    case 'month':
-      return { from: startOfMonth(reference), to: endOfMonth(reference) };
-    case 'custom':
-      return {
-        from: customFrom ? startOfDay(customFrom) : null,
-        to: customTo ? endOfDay(customTo) : null,
-      };
-    default:
-      return { from: null, to: null };
-  }
-}
-
-export function filterVehiclesBySearch(vehicles: Vehicle[], query: string): Vehicle[] {
-  const term = query.trim().toLowerCase();
-  if (!term) return vehicles;
-
-  return vehicles.filter(
-    (vehicle) =>
-      vehicle.vin.toLowerCase().includes(term) ||
-      vehicle.model.toLowerCase().includes(term),
-  );
-}
-
-export function filterVehiclesByDateRange(
-  vehicles: Vehicle[],
-  fromDate: Date | null,
-  toDate: Date | null,
-): Vehicle[] {
-  if (!fromDate && !toDate) return vehicles;
-
-  return vehicles.filter((vehicle) => {
-    const created = new Date(vehicle.createdAt);
-    if (Number.isNaN(created.getTime())) return false;
-    if (fromDate && created < fromDate) return false;
-    if (toDate && created > toDate) return false;
-    return true;
-  });
-}
-
-export function filterVehiclesToday(
-  vehicles: Vehicle[],
-  reference: Date = new Date(),
-): Vehicle[] {
-  const { from, to } = getTodayRange(reference);
-  return filterVehiclesByDateRange(vehicles, from, to);
-}
-
-export function parseDateInput(value: string): Date | null {
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+export function getMonthRange(reference = new Date()): DateRange {
+  const from = new Date(reference.getFullYear(), reference.getMonth(), 1);
+  const to = new Date(reference.getFullYear(), reference.getMonth() + 1, 0);
+  return { from: startOfDay(from), to: endOfDay(to) };
 }
 
 export function formatFilterDate(date: Date): string {
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString('en-AU', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
 }
+
+function inspectionDate(inspection: CargoInspection): Date {
+  return new Date(inspection.registeredAt);
+}
+
+export function filterInspectionsBySearch(
+  inspections: CargoInspection[],
+  query: string,
+): CargoInspection[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return inspections;
+
+  return inspections.filter((item) => {
+    const haystack = [item.uldId, item.awbNumber, item.foodType, item.createdBy]
+      .join(' ')
+      .toLowerCase();
+    return haystack.includes(q);
+  });
+}
+
+export function filterInspectionsByDateRange(
+  inspections: CargoInspection[],
+  from: Date,
+  to: Date,
+): CargoInspection[] {
+  const fromMs = from.getTime();
+  const toMs = to.getTime();
+
+  return inspections.filter((item) => {
+    const t = inspectionDate(item).getTime();
+    return t >= fromMs && t <= toMs;
+  });
+}
+
+export function filterInspectionsToday(
+  inspections: CargoInspection[],
+  reference = new Date(),
+): CargoInspection[] {
+  const { from, to } = getTodayRange();
+  return filterInspectionsByDateRange(inspections, from, to);
+}
+
+/** @deprecated Use filterInspectionsBySearch */
+export const filterVehiclesBySearch = filterInspectionsBySearch;
+
+/** @deprecated Use filterInspectionsByDateRange */
+export const filterVehiclesByDateRange = filterInspectionsByDateRange;
+
+/** @deprecated Use filterInspectionsToday */
+export const filterVehiclesToday = filterInspectionsToday;

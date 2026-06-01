@@ -1,96 +1,109 @@
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 
-import type { Vehicle } from '@/types';
-import type { CatalogTypeOption } from '@/types/catalog';
+import type { CargoInspection } from '@/types';
 import { formatVehicleDate } from '@/utils/formatDate';
-
-function buildTypeLabelMap(types: CatalogTypeOption[]): Map<string, string> {
-  return new Map(types.map((type) => [type.value, type.label]));
-}
+import { getConservationLabel } from '@/utils/vehicleLabels';
 
 const CSV_HEADERS = [
-  'VIN',
-  'Model',
-  'Type',
-  'Colour',
-  'Comments',
-  'Photos',
-  'Operator',
-  'Created',
+  'ULD ID',
+  'AWB',
+  'Conservation',
+  'Food type',
+  'Weight (kg)',
+  'Boxes',
+  'Issues',
+  'Issue description',
+  'Registered',
   'Updated',
+  'Operator',
 ] as const;
 
-function escapeCsvCell(value: string): string {
-  const normalized = value.replace(/"/g, '""');
-  return `"${normalized}"`;
+function escapeCsv(value: string): string {
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
 }
 
-function vehicleToRow(vehicle: Vehicle, typeLabels: Map<string, string>): string[] {
+function inspectionToRow(inspection: CargoInspection): string[] {
   return [
-    vehicle.vin,
-    vehicle.model,
-    typeLabels.get(vehicle.type) ?? vehicle.type,
-    vehicle.color,
-    vehicle.comments,
-    String(vehicle.imagesUrls.length),
-    vehicle.createdByEmail || vehicle.userId,
-    formatVehicleDate(vehicle.createdAt),
-    vehicle.updatedAt ? formatVehicleDate(vehicle.updatedAt) : '',
+    inspection.uldId,
+    inspection.awbNumber,
+    getConservationLabel(inspection.conservationType),
+    inspection.foodType,
+    String(inspection.weightKg),
+    String(inspection.boxCount),
+    inspection.hasIssues ? 'Yes' : 'No',
+    inspection.issueDescription ?? '',
+    formatVehicleDate(inspection.registeredAt),
+    inspection.updatedAt ? formatVehicleDate(inspection.updatedAt) : '',
+    inspection.createdBy,
   ];
 }
 
-export function vehiclesToCsv(
-  vehicles: Vehicle[],
-  catalogTypes: CatalogTypeOption[] = [],
-): string {
-  const typeLabels = buildTypeLabelMap(catalogTypes);
-  const header = CSV_HEADERS.map(escapeCsvCell).join(',');
-  const rows = vehicles.map((vehicle) =>
-    vehicleToRow(vehicle, typeLabels).map(escapeCsvCell).join(','),
+function buildCsvContent(inspections: CargoInspection[]): string {
+  const rows = inspections.map((item) =>
+    inspectionToRow(item).map(escapeCsv).join(','),
   );
-  return `\uFEFF${[header, ...rows].join('\n')}`;
+  return [CSV_HEADERS.join(','), ...rows].join('\n');
 }
 
-async function writeAndShare(content: string, filename: string, mimeType: string): Promise<void> {
-  const fileUri = `${FileSystem.cacheDirectory}${filename}`;
-  await FileSystem.writeAsStringAsync(fileUri, content, {
+function buildExcelHtml(inspections: CargoInspection[]): string {
+  const headerCells = CSV_HEADERS.map((h) => `<th>${h}</th>`).join('');
+  const bodyRows = inspections
+    .map((item) => {
+      const cells = inspectionToRow(item)
+        .map((v) => `<td>${v.replace(/</g, '&lt;')}</td>`)
+        .join('');
+      return `<tr>${cells}</tr>`;
+    })
+    .join('');
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"/></head><body><table border="1"><thead><tr>${headerCells}</tr></thead><tbody>${bodyRows}</tbody></table></body></html>`;
+}
+
+async function shareTextFile(
+  filename: string,
+  content: string,
+  mimeType: string,
+): Promise<void> {
+  const uri = `${FileSystem.cacheDirectory}${filename}`;
+  await FileSystem.writeAsStringAsync(uri, content, {
     encoding: FileSystem.EncodingType.UTF8,
   });
 
-  const canShare = await Sharing.isAvailableAsync();
-  if (!canShare) {
+  if (!(await Sharing.isAvailableAsync())) {
     throw new Error('Sharing is not available on this device.');
   }
 
-  await Sharing.shareAsync(fileUri, {
-    mimeType,
-    dialogTitle: 'Export vehicle records',
-    UTI: mimeType,
-  });
+  await Sharing.shareAsync(uri, { mimeType, dialogTitle: 'Export records' });
 }
 
-export async function shareVehiclesAsCsv(
-  vehicles: Vehicle[],
-  catalogTypes: CatalogTypeOption[] = [],
+export async function shareInspectionsAsCsv(
+  inspections: CargoInspection[],
 ): Promise<void> {
   const timestamp = new Date().toISOString().slice(0, 10);
-  await writeAndShare(
-    vehiclesToCsv(vehicles, catalogTypes),
+  await shareTextFile(
     `continental-inspect-records-${timestamp}.csv`,
+    buildCsvContent(inspections),
     'text/csv',
   );
 }
 
-/** Excel opens UTF-8 CSV saved with .xls extension on mobile share sheets. */
-export async function shareVehiclesAsExcel(
-  vehicles: Vehicle[],
-  catalogTypes: CatalogTypeOption[] = [],
+export async function shareInspectionsAsExcel(
+  inspections: CargoInspection[],
 ): Promise<void> {
   const timestamp = new Date().toISOString().slice(0, 10);
-  await writeAndShare(
-    vehiclesToCsv(vehicles, catalogTypes),
+  await shareTextFile(
     `continental-inspect-records-${timestamp}.xls`,
+    buildExcelHtml(inspections),
     'application/vnd.ms-excel',
   );
 }
+
+/** @deprecated Use shareInspectionsAsCsv */
+export const shareVehiclesAsCsv = shareInspectionsAsCsv;
+
+/** @deprecated Use shareInspectionsAsExcel */
+export const shareVehiclesAsExcel = shareInspectionsAsExcel;

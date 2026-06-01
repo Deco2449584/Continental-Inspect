@@ -5,7 +5,7 @@ La app usa **Firebase Auth**, **Cloud Firestore** y **Firebase Storage** con el 
 ## 1. Proyecto en Firebase Console
 
 1. Entra a [Firebase Console](https://console.firebase.google.com/).
-2. Abre el proyecto **detailospro** (o crea uno nuevo).
+2. Abre el proyecto **tanda-aeace** (Continental Inspect) o crea uno nuevo.
 3. En **Build** activa:
    - **Authentication** → método **Email/Password**
    - **Firestore Database** → crea base en modo producción (región cercana, p. ej. `australia-southeast1`)
@@ -27,6 +27,8 @@ EXPO_PUBLIC_ADMIN_EMAILS=admin@continentalcargo.com.au,otro@empresa.com
 ```
 
 `EXPO_PUBLIC_ADMIN_EMAILS` es una lista separada por comas. Esos correos reciben rol **admin** al iniciar sesión (pestaña Admin, exportar CSV/Excel y PDF).
+
+Los registros de carga se guardan en la colección **`cargo_inspections`**. Publica las reglas de `firebase/firestore.rules` después de cambiar de proyecto.
 
 3. Reinicia Metro después de cambiar `.env`:
 

@@ -1,60 +1,70 @@
 import {
-    createContext,
-    useCallback,
-    useContext,
-    useEffect,
-    useMemo,
-    useState,
-    type ReactNode,
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
 } from 'react';
 
 import { useAuth } from '@/context/AuthContext';
-import { isFirebaseConfigured } from '@/services/firebaseConfig';
 import {
-    appendToVehicle,
-    createVehicle,
-    fetchVehicleByVin,
-    findVehicleByVin,
-    subscribeToAllVehicles,
-    subscribeToUserVehicles,
-    updateVehicle,
-} from '@/services/vehicleRepository';
-import type { AppendVehicleInput, NewVehicleInput, UpdateVehicleInput, Vehicle } from '@/types';
+  createCargoInspection,
+  deleteCargoInspection,
+  fetchCargoInspectionByUldId,
+  findCargoInspectionByUldId,
+  subscribeToAllCargoInspections,
+  subscribeToUserCargoInspections,
+  updateCargoInspection,
+} from '@/services/cargoInspectionRepository';
+import { isFirebaseConfigured } from '@/services/firebaseConfig';
+import type {
+  CargoInspection,
+  NewCargoInspectionInput,
+  UpdateCargoInspectionInput,
+} from '@/types';
 
-export type { AppendVehicleInput, NewVehicleInput, UpdateVehicleInput };
+export type { CargoInspection, NewCargoInspectionInput, UpdateCargoInspectionInput };
 
 type VehiclesContextValue = {
-  vehicles: Vehicle[];
+  /** Cargo inspections loaded from Firestore. */
+  inspections: CargoInspection[];
+  /** @deprecated Prefer `inspections` — kept for gradual UI migration. */
+  vehicles: CargoInspection[];
   isLoading: boolean;
   isRefreshing: boolean;
   error: string | null;
-  findByVin: (vin: string) => Vehicle | null;
-  lookupVehicleByVin: (vin: string) => Promise<Vehicle | null>;
+  findByUldId: (uldId: string) => CargoInspection | null;
+  lookupInspectionByUldId: (uldId: string) => Promise<CargoInspection | null>;
   refreshRecords: () => Promise<void>;
-  addVehicle: (input: NewVehicleInput) => Promise<Vehicle>;
-  updateVehicleById: (vehicleId: string, input: UpdateVehicleInput) => Promise<Vehicle>;
-  appendVehicleById: (vehicleId: string, input: AppendVehicleInput) => Promise<Vehicle>;
+  addInspection: (input: NewCargoInspectionInput) => Promise<CargoInspection>;
+  updateInspectionById: (
+    inspectionId: string,
+    input: UpdateCargoInspectionInput,
+  ) => Promise<CargoInspection>;
+  deleteInspectionById: (inspectionId: string) => Promise<void>;
 };
 
 const VehiclesContext = createContext<VehiclesContextValue | undefined>(undefined);
 
 export function VehiclesProvider({ children }: { children: ReactNode }) {
   const { user, isAdmin } = useAuth();
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [inspections, setInspections] = useState<CargoInspection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      setVehicles([]);
+      setInspections([]);
       setError(null);
       setIsLoading(false);
       return;
     }
 
     if (!isFirebaseConfigured) {
-      setVehicles([]);
+      setInspections([]);
       setError('Firebase is not configured.');
       setIsLoading(false);
       return;
@@ -63,8 +73,8 @@ export function VehiclesProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
     setError(null);
 
-    const onData = (nextVehicles: Vehicle[]) => {
-      setVehicles(nextVehicles);
+    const onData = (nextInspections: CargoInspection[]) => {
+      setInspections(nextInspections);
       setIsLoading(false);
       setError(null);
     };
@@ -75,8 +85,8 @@ export function VehiclesProvider({ children }: { children: ReactNode }) {
     };
 
     const unsubscribe = isAdmin
-      ? subscribeToAllVehicles(onData, onError)
-      : subscribeToUserVehicles(user.uid, onData, onError);
+      ? subscribeToAllCargoInspections(onData, onError)
+      : subscribeToUserCargoInspections(user.uid, onData, onError);
 
     return unsubscribe;
   }, [user?.uid, isAdmin]);
@@ -87,152 +97,143 @@ export function VehiclesProvider({ children }: { children: ReactNode }) {
     setIsRefreshing(false);
   }, []);
 
-  const findByVin = useCallback(
-    (vin: string) => findVehicleByVin(vehicles, vin),
-    [vehicles],
+  const findByUldId = useCallback(
+    (uldId: string) => findCargoInspectionByUldId(inspections, uldId),
+    [inspections],
   );
 
-  const lookupVehicleByVin = useCallback(
-    async (vin: string): Promise<Vehicle | null> => {
-      const local = findVehicleByVin(vehicles, vin);
+  const lookupInspectionByUldId = useCallback(
+    async (uldId: string): Promise<CargoInspection | null> => {
+      const local = findCargoInspectionByUldId(inspections, uldId);
       if (local) {
         return local;
       }
       try {
-        return await fetchVehicleByVin(vin);
+        return await fetchCargoInspectionByUldId(uldId);
       } catch {
         return null;
       }
     },
-    [vehicles],
+    [inspections],
   );
 
-  const addVehicle = useCallback(
-    async (input: NewVehicleInput): Promise<Vehicle> => {
+  const addInspection = useCallback(
+    async (input: NewCargoInspectionInput): Promise<CargoInspection> => {
       if (!user) {
         throw new Error('You must be signed in to save a record.');
       }
 
-      const duplicate = findVehicleByVin(vehicles, input.vin);
+      const duplicate = findCargoInspectionByUldId(inspections, input.uldId);
       if (duplicate) {
-        throw new Error('DUPLICATE_VIN');
+        throw new Error('DUPLICATE_ULD');
       }
 
-      const vehicle = await createVehicle(user.uid, input, user.email ?? '');
+      const inspection = await createCargoInspection(
+        user.uid,
+        input,
+        user.email ?? '',
+      );
 
-      setVehicles((prev) => {
-        const withoutDuplicate = prev.filter((item) => item.id !== vehicle.id);
-        return [vehicle, ...withoutDuplicate].sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      setInspections((prev) => {
+        const withoutDuplicate = prev.filter((item) => item.id !== inspection.id);
+        return [inspection, ...withoutDuplicate].sort(
+          (a, b) =>
+            new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
         );
       });
 
-      return vehicle;
+      return inspection;
     },
-    [user, vehicles],
+    [user, inspections],
   );
 
-  const updateVehicleById = useCallback(
-    async (vehicleId: string, input: UpdateVehicleInput): Promise<Vehicle> => {
+  const updateInspectionById = useCallback(
+    async (
+      inspectionId: string,
+      input: UpdateCargoInspectionInput,
+    ): Promise<CargoInspection> => {
       if (!user) {
         throw new Error('You must be signed in to update a record.');
       }
 
-      const existing = vehicles.find((vehicle) => vehicle.id === vehicleId);
+      const existing = inspections.find((item) => item.id === inspectionId);
       if (!existing) {
-        throw new Error('Vehicle record not found.');
+        throw new Error('Cargo inspection not found.');
       }
 
-      const { imageUrls, updatedAtIso } = await updateVehicle(user.uid, vehicleId, input);
-
-      const updated: Vehicle = {
-        ...existing,
-        model: input.model,
-        type: input.type,
-        color: input.color,
-        comments: input.comments.trim(),
-        imagesUrls: imageUrls,
-        updatedAt: updatedAtIso,
-      };
-
-      setVehicles((prev) =>
-        prev
-          .map((vehicle) => (vehicle.id === vehicleId ? updated : vehicle))
-          .sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          ),
-      );
-
-      return updated;
-    },
-    [user, vehicles],
-  );
-
-  const appendVehicleById = useCallback(
-    async (vehicleId: string, input: AppendVehicleInput): Promise<Vehicle> => {
-      if (!user) {
-        throw new Error('You must be signed in to update a record.');
-      }
-
-      const existing = vehicles.find((vehicle) => vehicle.id === vehicleId);
-      if (!existing) {
-        throw new Error('Vehicle record not found.');
-      }
-
-      const { imageUrls, comments, type, updatedAtIso } = await appendToVehicle(
+      const { photoEvidence, videoEvidence, updatedAtIso } = await updateCargoInspection(
         user.uid,
-        vehicleId,
+        inspectionId,
         input,
-        existing.comments,
-        existing.imagesUrls,
-        existing.type,
+        user.email ?? existing.createdBy,
       );
 
-      const updated: Vehicle = {
+      const updated: CargoInspection = {
         ...existing,
-        type,
-        comments,
-        imagesUrls: imageUrls,
+        uldId: input.uldId,
+        awbNumber: input.awbNumber.trim(),
+        conservationType: input.conservationType,
+        foodType: input.foodType.trim(),
+        weightKg: input.weightKg,
+        boxCount: input.boxCount,
+        hasIssues: input.hasIssues,
+        issueDescription: input.hasIssues ? input.issueDescription?.trim() : undefined,
+        photoEvidence,
+        videoEvidence,
         updatedAt: updatedAtIso,
       };
 
-      setVehicles((prev) =>
+      setInspections((prev) =>
         prev
-          .map((vehicle) => (vehicle.id === vehicleId ? updated : vehicle))
+          .map((item) => (item.id === inspectionId ? updated : item))
           .sort(
-            (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+            (a, b) =>
+              new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
           ),
       );
 
       return updated;
     },
-    [user, vehicles],
+    [user, inspections],
+  );
+
+  const deleteInspectionById = useCallback(
+    async (inspectionId: string): Promise<void> => {
+      if (!user) {
+        throw new Error('You must be signed in to delete a record.');
+      }
+
+      await deleteCargoInspection(inspectionId);
+      setInspections((prev) => prev.filter((item) => item.id !== inspectionId));
+    },
+    [user],
   );
 
   const value = useMemo(
     () => ({
-      vehicles,
+      inspections,
+      vehicles: inspections,
       isLoading,
       isRefreshing,
       error,
-      findByVin,
-      lookupVehicleByVin,
+      findByUldId,
+      lookupInspectionByUldId,
       refreshRecords,
-      addVehicle,
-      updateVehicleById,
-      appendVehicleById,
+      addInspection,
+      updateInspectionById,
+      deleteInspectionById,
     }),
     [
-      vehicles,
+      inspections,
       isLoading,
       isRefreshing,
       error,
-      findByVin,
-      lookupVehicleByVin,
+      findByUldId,
+      lookupInspectionByUldId,
       refreshRecords,
-      addVehicle,
-      updateVehicleById,
-      appendVehicleById,
+      addInspection,
+      updateInspectionById,
+      deleteInspectionById,
     ],
   );
 
@@ -246,3 +247,6 @@ export function useVehicles(): VehiclesContextValue {
   }
   return context;
 }
+
+/** Preferred hook name for cargo inspection data. */
+export const useCargoInspections = useVehicles;

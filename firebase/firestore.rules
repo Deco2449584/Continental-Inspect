@@ -23,7 +23,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /vehicles/{vehicleId} {
+    match /cargo_inspections/{inspectionId} {
       allow read: if request.auth != null
         && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if request.auth != null
