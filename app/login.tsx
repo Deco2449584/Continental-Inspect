@@ -33,7 +33,7 @@ const loginSurface = {
 const ACCESS_DENIED_MESSAGES: Record<string, string> = {
   not_found:
     'Your account is not registered in the employee directory. Contact your supervisor.',
-  inactive: 'Your employee account is inactive. Contact your supervisor.',
+  inactive: 'Your account has been deactivated. Please contact management.',
   no_email: 'This account has no email. Use a corporate email to sign in.',
   firestore_unavailable:
     'Could not verify your employee record. Check your connection and try again.',

@@ -5,10 +5,12 @@ import {
   getDoc,
   getDocs,
   limit,
+  onSnapshot,
   orderBy,
   query,
   updateDoc,
   where,
+  type Unsubscribe,
 } from 'firebase/firestore';
 
 import { db } from '@/services/firebaseConfig';
@@ -243,6 +245,48 @@ export async function updateEmployeeDepartment(
   await updateDoc(doc(db, EMPLOYEES_COLLECTION, docId), {
     department: department.trim(),
   });
+}
+
+export type EmployeeProfileUpdates = Pick<EmployeeRecord, 'name' | 'department' | 'employeeId'>;
+
+/** Updates editable employee fields on the Firestore `employees` document. */
+export async function updateEmployeeProfile(
+  docId: string,
+  updates: EmployeeProfileUpdates,
+): Promise<void> {
+  if (!db) throw new Error('Firestore is not configured.');
+  await updateDoc(doc(db, EMPLOYEES_COLLECTION, docId), {
+    name: updates.name.trim(),
+    department: updates.department.trim(),
+    employeeId: updates.employeeId.trim(),
+  });
+}
+
+/**
+ * Real-time listener for the signed-in employee document (`employees` collection).
+ * Invokes `onInactive` when the doc is missing or `active` is false.
+ */
+export function subscribeToEmployeeRecord(
+  docId: string,
+  onRecord: (record: EmployeeRecord | null) => void,
+): Unsubscribe {
+  if (!db) {
+    return () => {};
+  }
+
+  return onSnapshot(
+    doc(db, EMPLOYEES_COLLECTION, docId),
+    (snapshot) => {
+      if (!snapshot.exists()) {
+        onRecord(null);
+        return;
+      }
+      onRecord(parseEmployeeRecord(snapshot.data() as Record<string, unknown>));
+    },
+    () => {
+      onRecord(null);
+    },
+  );
 }
 
 /** @deprecated Use updateEmployeeDepartment */

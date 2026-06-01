@@ -88,8 +88,12 @@ export function AppTabBar({ state, descriptors, navigation }: BottomTabBarProps)
     <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, 10) }]}>
       <View style={styles.bar}>
         {state.routes.map((route, index) => {
-          const focused = state.index === index;
           const { options } = descriptors[route.key];
+          if (options.href === null) {
+            return null;
+          }
+
+          const focused = state.index === index;
           const meta = TAB_META[route.name] ?? {
             label: route.name,
             icon: 'ellipse-outline' as TabIconName,

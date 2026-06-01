@@ -154,7 +154,8 @@ function createAdminStyles(colors: AppColors) {
 export default function AdminScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createAdminStyles);
-  const { isAdmin, isLoading: authLoading, user } = useAuth();
+  const { role, isLoading: authLoading, user } = useAuth();
+  const isAdmin = role === 'admin';
   const { inspections, isLoading: inspectionsLoading } = useCargoInspections();
 
   const [isExporting, setIsExporting] = useState(false);
@@ -188,7 +189,7 @@ export default function AdminScreen() {
     }
   };
 
-  if (!authLoading && !isAdmin) {
+  if (!authLoading && role !== 'admin') {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -252,7 +253,9 @@ export default function AdminScreen() {
           )}
         </Pressable>
 
-        {user ? <UserManagementSection currentUserUid={user.uid} /> : null}
+        {user ? (
+          <UserManagementSection currentAuthUid={user.uid} currentAuthEmail={user.email} />
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

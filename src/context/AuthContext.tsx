@@ -10,15 +10,19 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
+import { Alert } from 'react-native';
 
 import { auth, isFirebaseConfigured } from '@/services/firebaseConfig';
 import {
   EmployeeAccessError,
   loadEmployeeProfile,
+  resolveRoleFromEmployee,
   resolveUserRole,
+  subscribeToEmployeeRecord,
 } from '@/services/userRepository';
 import type { EmployeeProfile, UserRole } from '@/types/auth';
 
@@ -28,6 +32,9 @@ export type AuthAccessDeniedReason =
   | 'no_email'
   | 'firestore_unavailable'
   | null;
+
+const INACTIVE_ALERT_MESSAGE =
+  'Your account has been deactivated. Please contact management.';
 
 type AuthContextValue = {
   user: User | null;
@@ -50,6 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profileSyncFailed, setProfileSyncFailed] = useState(false);
   const [accessDeniedReason, setAccessDeniedReason] = useState<AuthAccessDeniedReason>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const inactiveSignOutRef = useRef(false);
 
   const rejectSession = useCallback(async (reason: AuthAccessDeniedReason) => {
     setProfile(null);
@@ -60,6 +68,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     setUser(null);
   }, []);
+
+  const handleInactiveAccount = useCallback(async () => {
+    if (inactiveSignOutRef.current) return;
+    inactiveSignOutRef.current = true;
+
+    Alert.alert('Account deactivated', INACTIVE_ALERT_MESSAGE);
+    await rejectSession('inactive');
+    inactiveSignOutRef.current = false;
+  }, [rejectSession]);
 
   useEffect(() => {
     if (!isFirebaseConfigured || !auth) {
@@ -99,6 +116,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             error.code === 'inactive' ||
             error.code === 'no_email'
           ) {
+            if (error.code === 'inactive') {
+              Alert.alert('Account deactivated', INACTIVE_ALERT_MESSAGE);
+            }
             await rejectSession(error.code);
             return;
           }
@@ -116,6 +136,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return unsubscribe;
   }, [rejectSession]);
+
+  useEffect(() => {
+    const docId = profile?.docId;
+    if (!user || !docId) {
+      return;
+    }
+
+    const unsubscribe = subscribeToEmployeeRecord(docId, (record) => {
+      if (!record || !record.active) {
+        void handleInactiveAccount();
+        return;
+      }
+
+      setProfile((current) => {
+        if (!current || current.docId !== docId) {
+          return current;
+        }
+
+        const email = user.email ?? current.email;
+        return {
+          ...current,
+          ...record,
+          email: record.email || email,
+          role: resolveRoleFromEmployee(record, email),
+        };
+      });
+    });
+
+    return unsubscribe;
+  }, [user, profile?.docId, handleInactiveAccount]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!auth) {

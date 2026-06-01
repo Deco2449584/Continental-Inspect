@@ -1,26 +1,28 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    Pressable,
-    StyleSheet,
-    Text,
-    TextInput,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
-    deactivateEmployee,
-    fetchAllEmployees,
-    getRoleLabel,
-    resolveRoleFromEmployee,
-    updateEmployeeDepartment,
-    type ManagedEmployee,
+  deactivateEmployee,
+  fetchAllEmployees,
+  getRoleLabel,
+  resolveRoleFromEmployee,
+  updateEmployeeProfile,
+  type ManagedEmployee,
 } from '@/services/userRepository';
 import { ACCENT, ACCENT_DIM, ACCENT_PRESSED } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
@@ -246,15 +248,40 @@ function createStyles(colors: AppColors) {
     },
     inputFocused: { borderColor: ACCENT },
 
-    // ── Role chips ───────────────────────────────────────────────────────────
-    roleRow: { flexDirection: 'row', gap: 10 },
+    modalScroll: {
+      maxHeight: 420,
+    },
+    modalScrollContent: {
+      paddingHorizontal: 24,
+      paddingBottom: 20,
+      gap: 16,
+    },
+    readOnlyField: {
+      backgroundColor: colors.surface.muted,
+      borderWidth: 1,
+      borderColor: colors.border.onSurface,
+      borderRadius: 10,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+    },
+    readOnlyText: {
+      fontFamily: fonts.body,
+      fontSize: 15,
+      color: colors.text.onSurfaceMuted,
+    },
+    // ── Department chips ───────────────────────────────────────────────────────
+    chipWrap: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 8,
+    },
     roleChip: {
-      flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 6,
-      paddingVertical: 11,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
       borderRadius: 10,
       borderWidth: 1,
       borderColor: colors.border.onSurface,
@@ -427,33 +454,74 @@ function DeleteConfirmModal({
 
 const DEPARTMENT_OPTIONS = ['logistica', 'admin', 'operations', 'warehouse', 'export'] as const;
 
-type EditDepartmentModalProps = {
+type EditEmployeeForm = {
+  name: string;
+  employeeId: string;
+  department: string;
+};
+
+const EMPTY_EDIT_FORM: EditEmployeeForm = {
+  name: '',
+  employeeId: '',
+  department: '',
+};
+
+type EditEmployeeModalProps = {
   user: ManagedEmployee | null;
   onClose: () => void;
-  onUpdated: (docId: string, department: string, role: UserRole) => void;
+  onUpdated: (employee: ManagedEmployee) => void;
   onError: (title: string, message: string) => void;
 };
 
-function EditDepartmentModal({ user, onClose, onUpdated, onError }: EditDepartmentModalProps) {
+function EditEmployeeModal({ user, onClose, onUpdated, onError }: EditEmployeeModalProps) {
   const styles = useThemedStyles(createStyles);
   const { colors } = useTheme();
-  const [department, setDepartment] = useState('');
+  const [editForm, setEditForm] = useState<EditEmployeeForm>(EMPTY_EDIT_FORM);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (user) setDepartment(user.department);
+    if (!user) {
+      setEditForm(EMPTY_EDIT_FORM);
+      return;
+    }
+    setEditForm({
+      name: user.name,
+      employeeId: user.employeeId,
+      department: user.department,
+    });
   }, [user]);
+
+  const resetAndClose = () => {
+    setEditForm(EMPTY_EDIT_FORM);
+    onClose();
+  };
 
   async function handleSave() {
     if (!user) return;
+
+    const name = editForm.name.trim();
+    const employeeId = editForm.employeeId.trim();
+    const department = editForm.department.trim();
+
+    if (!name || !employeeId || !department) {
+      onError('Missing fields', 'Name, employee ID, and department are required.');
+      return;
+    }
+
     setIsSaving(true);
     try {
-      await updateEmployeeDepartment(user.docId, department);
+      await updateEmployeeProfile(user.docId, { name, employeeId, department });
       const role = resolveRoleFromEmployee({ department }, user.email);
-      onUpdated(user.docId, department.trim(), role);
-      onClose();
+      onUpdated({
+        ...user,
+        name,
+        employeeId,
+        department,
+        role,
+      });
+      resetAndClose();
     } catch {
-      onError('Error', 'Could not update department. Please try again.');
+      onError('Error', 'Could not save employee changes. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -465,36 +533,79 @@ function EditDepartmentModal({ user, onClose, onUpdated, onError }: EditDepartme
       transparent
       animationType="fade"
       statusBarTranslucent
-      onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose}>
+      onRequestClose={resetAndClose}>
+      <KeyboardAvoidingView
+        style={styles.backdrop}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <Pressable style={StyleSheet.absoluteFill} onPress={resetAndClose} />
         <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
           <View style={styles.modalAccent} />
           <View style={styles.modalHeader}>
             <View style={styles.modalTitleRow}>
               <View style={styles.modalIconWrap}>
-                <Ionicons name="shield-outline" size={18} color={ACCENT} />
+                <Ionicons name="person-outline" size={18} color={ACCENT} />
               </View>
-              <Text style={styles.modalTitle}>Edit department</Text>
+              <Text style={styles.modalTitle}>Edit employee</Text>
             </View>
-            <Text style={styles.modalSubtitle}>
-              {user?.name} · {user?.email}
-            </Text>
-            <Text style={[styles.modalSubtitle, { marginTop: 4 }]}>
-              Admin access: logistica or admin
+            <Text style={styles.modalSubtitle} numberOfLines={2}>
+              Update profile details for this account
             </Text>
           </View>
 
-          <View style={styles.modalBody}>
+          <ScrollView
+            style={styles.modalScroll}
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}>
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Email (read-only)</Text>
+              <View style={styles.readOnlyField}>
+                <Text style={styles.readOnlyText}>{user?.email ?? '—'}</Text>
+              </View>
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Full name</Text>
+              <TextInput
+                style={styles.input}
+                value={editForm.name}
+                onChangeText={(name) => setEditForm((prev) => ({ ...prev, name }))}
+                placeholder="Employee name"
+                placeholderTextColor={colors.text.onSurfaceMuted}
+                autoCapitalize="words"
+                editable={!isSaving}
+              />
+            </View>
+
+            <View style={styles.fieldGroup}>
+              <Text style={styles.fieldLabel}>Employee ID</Text>
+              <TextInput
+                style={styles.input}
+                value={editForm.employeeId}
+                onChangeText={(employeeId) =>
+                  setEditForm((prev) => ({ ...prev, employeeId }))
+                }
+                placeholder="Employee ID"
+                placeholderTextColor={colors.text.onSurfaceMuted}
+                autoCapitalize="characters"
+                editable={!isSaving}
+              />
+            </View>
+
             <View style={styles.fieldGroup}>
               <Text style={styles.fieldLabel}>Department</Text>
-              <View style={styles.roleRow}>
+              <Text style={[styles.readOnlyText, { marginBottom: 4 }]}>
+                Admin access: logistica or admin
+              </Text>
+              <View style={styles.chipWrap}>
                 {DEPARTMENT_OPTIONS.map((dept) => {
-                  const active = department.toLowerCase() === dept;
+                  const active = editForm.department.toLowerCase() === dept;
                   return (
                     <Pressable
                       key={dept}
                       style={[styles.roleChip, active && styles.roleChipActive]}
-                      onPress={() => setDepartment(dept)}>
+                      onPress={() => setEditForm((prev) => ({ ...prev, department: dept }))}
+                      disabled={isSaving}>
                       <Text style={[styles.roleChipText, active && styles.roleChipTextActive]}>
                         {dept}
                       </Text>
@@ -503,11 +614,14 @@ function EditDepartmentModal({ user, onClose, onUpdated, onError }: EditDepartme
                 })}
               </View>
             </View>
-          </View>
+          </ScrollView>
 
           <View style={styles.modalDivider} />
           <View style={styles.modalFooter}>
-            <Pressable style={styles.modalCancelBtn} onPress={onClose} disabled={isSaving}>
+            <Pressable
+              style={styles.modalCancelBtn}
+              onPress={resetAndClose}
+              disabled={isSaving}>
               <Text style={styles.modalCancelText}>Cancel</Text>
             </Pressable>
             <Pressable
@@ -515,28 +629,46 @@ function EditDepartmentModal({ user, onClose, onUpdated, onError }: EditDepartme
                 styles.modalConfirmBtn,
                 pressed && styles.modalConfirmBtnPressed,
               ]}
-              onPress={handleSave}
+              onPress={() => void handleSave()}
               disabled={isSaving}>
               {isSaving ? (
                 <ActivityIndicator color={ACCENT} size="small" />
               ) : (
-                <Text style={styles.modalConfirmText}>Save</Text>
+                <Text style={styles.modalConfirmText}>Save changes</Text>
               )}
             </Pressable>
           </View>
         </Pressable>
-      </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
 
 // ─── Main section ─────────────────────────────────────────────────────────────
 
+function isLoggedInEmployee(
+  employee: ManagedEmployee,
+  authUid: string,
+  authEmail: string | null | undefined,
+): boolean {
+  if (employee.docId === authUid) return true;
+  const normalizedAuthEmail = authEmail?.trim().toLowerCase();
+  if (normalizedAuthEmail && employee.email.trim().toLowerCase() === normalizedAuthEmail) {
+    return true;
+  }
+  return false;
+}
+
 type UserManagementSectionProps = {
-  currentUserUid: string;
+  /** Firebase Auth UID of the signed-in admin */
+  currentAuthUid: string;
+  currentAuthEmail?: string | null;
 };
 
-export function UserManagementSection({ currentUserUid }: UserManagementSectionProps) {
+export function UserManagementSection({
+  currentAuthUid,
+  currentAuthEmail,
+}: UserManagementSectionProps) {
   const styles = useThemedStyles(createStyles);
   const { colors } = useTheme();
   const [users, setUsers]               = useState<ManagedEmployee[]>([]);
@@ -559,22 +691,33 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
-  function handleDepartmentUpdated(docId: string, department: string, role: UserRole) {
+  function handleEmployeeUpdated(updated: ManagedEmployee) {
     setUsers((prev) =>
-      prev.map((u) => (u.docId === docId ? { ...u, department, role } : u)),
+      prev.map((item) => (item.docId === updated.docId ? updated : item)),
     );
   }
 
-  function requestDelete(user: ManagedEmployee) {
-    if (user.uid === currentUserUid) {
-      showError('Not allowed', 'You cannot delete your own account.');
+  function requestDelete(employee: ManagedEmployee) {
+    if (isLoggedInEmployee(employee, currentAuthUid, currentAuthEmail)) {
+      Alert.alert(
+        'Action Denied',
+        'You cannot delete your own administrator account.',
+      );
       return;
     }
-    setDeleteTarget({ user });
+    setDeleteTarget({ user: employee });
   }
 
   async function handleConfirmDelete() {
     if (!deleteTarget) return;
+    if (isLoggedInEmployee(deleteTarget.user, currentAuthUid, currentAuthEmail)) {
+      setDeleteTarget(null);
+      Alert.alert(
+        'Action Denied',
+        'You cannot delete your own administrator account.',
+      );
+      return;
+    }
     setIsDeleting(true);
     try {
       // Get admin's current ID token to authenticate the REST API call
@@ -606,8 +749,9 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
         <View style={{ gap: 8 }}>
           {users.map((user) => {
             const badge = roleBadgeStyle(user.role);
+            const isSelf = isLoggedInEmployee(user, currentAuthUid, currentAuthEmail);
             return (
-              <View key={user.uid} style={styles.userCard}>
+              <View key={user.docId} style={styles.userCard}>
                 <View style={styles.userAccent} />
                 <View style={styles.userBody}>
                   <Text style={styles.userEmail} numberOfLines={1}>
@@ -632,14 +776,16 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
                     onPress={() => setEditingUser(user)}>
                     <Ionicons name="create-outline" size={19} color={colors.accent.primary} />
                   </Pressable>
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.iconBtn,
-                      { backgroundColor: pressed ? ACCENT_DIM : 'transparent' },
-                    ]}
-                    onPress={() => requestDelete(user)}>
-                    <Ionicons name="trash-outline" size={19} color={colors.text.onSurfaceMuted} />
-                  </Pressable>
+                  {!isSelf ? (
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.iconBtn,
+                        { backgroundColor: pressed ? ACCENT_DIM : 'transparent' },
+                      ]}
+                      onPress={() => requestDelete(user)}>
+                      <Ionicons name="trash-outline" size={19} color={colors.text.onSurfaceMuted} />
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
             );
@@ -652,11 +798,10 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
         record required).
       </Text>
 
-      {/* Edit department modal */}
-      <EditDepartmentModal
+      <EditEmployeeModal
         user={editingUser}
         onClose={() => setEditingUser(null)}
-        onUpdated={handleDepartmentUpdated}
+        onUpdated={handleEmployeeUpdated}
         onError={showError}
       />
 

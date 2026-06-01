@@ -6,7 +6,8 @@ import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
 export default function TabsLayout() {
-  const { user, profile, isAdmin, isLoading } = useAuth();
+  const { user, profile, role, isLoading } = useAuth();
+  const isAdmin = role === 'admin';
   const router = useRouter();
 
   if (isLoading) {
