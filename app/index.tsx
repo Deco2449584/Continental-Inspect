@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
 export default function IndexScreen() {
-  const { user, isLoading } = useAuth();
+  const { user, profile, isLoading } = useAuth();
 
   if (isLoading) {
     return (
@@ -15,7 +15,7 @@ export default function IndexScreen() {
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return <Redirect href="/login" />;
   }
 

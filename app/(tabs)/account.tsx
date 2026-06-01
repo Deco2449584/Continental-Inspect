@@ -199,10 +199,19 @@ export default function AccountScreen() {
           </Text>
 
           <View style={styles.card}>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{user?.email ?? '—'}</Text>
+            <Text style={styles.label}>Name</Text>
+            <Text style={styles.value}>{profile?.name ?? '—'}</Text>
 
-            <Text style={styles.label}>Role</Text>
+            <Text style={styles.label}>Employee ID</Text>
+            <Text style={styles.value}>{profile?.employeeId ?? '—'}</Text>
+
+            <Text style={styles.label}>Department</Text>
+            <Text style={styles.value}>{profile?.department ?? '—'}</Text>
+
+            <Text style={styles.label}>Email</Text>
+            <Text style={styles.value}>{user?.email ?? profile?.email ?? '—'}</Text>
+
+            <Text style={styles.label}>Access level</Text>
             <View style={styles.roleRow}>
               <Ionicons
                 name={isAdmin ? 'shield-checkmark' : 'person-circle-outline'}
@@ -213,17 +222,20 @@ export default function AccountScreen() {
                 {getRoleLabel(role)}
               </Text>
             </View>
+
+            <Text style={styles.label}>Status</Text>
+            <Text style={styles.value}>{profile?.active ? 'Active' : 'Inactive'}</Text>
           </View>
 
           {profileSyncFailed ? (
             <Text style={styles.hintWarn}>
-              Could not sync your profile to Firestore. Publish rules from firebase/firestore.rules.
+              Could not load your employee record from Firestore. Check rules and connectivity.
             </Text>
           ) : null}
 
           {!isAdmin && emailMatchesAdminList && adminEmailsConfigured ? (
             <Text style={styles.hintWarn}>
-              Your email is in the admin list. Restart with: npm run start:clear
+              Your email is in the admin override list but your department is not admin/logistica.
             </Text>
           ) : null}
 

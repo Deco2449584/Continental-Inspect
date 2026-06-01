@@ -1,35 +1,83 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isAdmin() {
-      return request.auth != null
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+
+    // 1. Colección de Empleados (Web y Tablet)
+    match /employees/{docId} {
+      allow read: if true;
+      allow create, update: if
+        request.resource.data.keys().hasOnly([
+          'name',
+          'email',
+          'active',
+          'lastAction',
+          'lastTimestampServer',
+          'department',
+          'hourlyRate',
+          'employeeId',
+          'photoUrl'
+        ]) &&
+        request.resource.data.name is string &&
+        request.resource.data.email is string &&
+        request.resource.data.employeeId is string &&
+        request.resource.data.active is bool &&
+        (
+          !('lastAction' in request.resource.data) ||
+          request.resource.data.lastAction in ['check_in', 'check_out', 'none']
+        );
+      allow delete: if request.auth != null;
     }
 
-    match /users/{userId} {
-      // Users can read/write their own profile; admins can read/write any profile
-      allow read: if request.auth != null
-        && (request.auth.uid == userId || isAdmin());
-      allow create: if request.auth != null
-        && (request.auth.uid == userId || isAdmin());
-      allow update: if request.auth != null
-        && (request.auth.uid == userId || isAdmin());
-      allow delete: if isAdmin();
+    // 2. Colección de Registros de Asistencia (Tablet y Web Admin)
+    match /attendance_records/{recordId} {
+      allow read: if true;
+      allow create: if
+        request.resource.data.keys().hasOnly([
+          'employeeId',
+          'employeeNameSnapshot',
+          'employeeEmailSnapshot',
+          'type',
+          'timestampServer',
+          'source',
+          'photoCaptured',
+          'photoPath',
+          'photoUrl'
+        ]) &&
+        request.resource.data.employeeId is string &&
+        request.resource.data.employeeNameSnapshot is string &&
+        request.resource.data.employeeEmailSnapshot is string &&
+        request.resource.data.type in ['check_in', 'check_out'] &&
+        request.resource.data.source == 'expo-app' &&
+        request.resource.data.photoCaptured is bool &&
+        request.resource.data.photoPath is string &&
+        request.resource.data.photoUrl is string;
+      allow update, delete: if request.auth != null;
     }
 
-    match /config/{document=**} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
+    // 3. Colección de Turnos (Agenda)
+    match /shifts/{shiftId} {
+      allow read: if true;
+      allow write: if request.auth != null;
     }
 
+    // 4. Solicitudes de Permisos y Vacaciones
+    match /leave_requests/{requestId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // 5. Continental Inspect — inspecciones de carga (AKE/PMC)
     match /cargo_inspections/{inspectionId} {
-      allow read: if request.auth != null
-        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow read: if request.auth != null;
       allow create: if request.auth != null
         && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if request.auth != null
-        && (resource.data.userId == request.auth.uid || isAdmin());
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+
+    // Bloqueo de seguridad global por defecto
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

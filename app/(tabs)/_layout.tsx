@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { colors } from '@/theme/colors';
 
 export default function TabsLayout() {
-  const { user, isAdmin, isLoading } = useAuth();
+  const { user, profile, isAdmin, isLoading } = useAuth();
   const router = useRouter();
 
   if (isLoading) {
@@ -23,7 +23,7 @@ export default function TabsLayout() {
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return <Redirect href="/login" />;
   }
 

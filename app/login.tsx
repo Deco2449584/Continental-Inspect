@@ -1,5 +1,5 @@
-import { Redirect, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { Redirect } from 'expo-router';
+import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -30,13 +30,27 @@ const loginSurface = {
   textMuted: '#6B7280',
 };
 
+const ACCESS_DENIED_MESSAGES: Record<string, string> = {
+  not_found:
+    'Your account is not registered in the employee directory. Contact your supervisor.',
+  inactive: 'Your employee account is inactive. Contact your supervisor.',
+  no_email: 'This account has no email. Use a corporate email to sign in.',
+  firestore_unavailable:
+    'Could not verify your employee record. Check your connection and try again.',
+};
+
 export default function LoginScreen() {
-  const { signIn, user, isLoading, isConfigured } = useAuth();
-  const router = useRouter();
+  const { signIn, user, profile, isLoading, isConfigured, accessDeniedReason } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (accessDeniedReason && ACCESS_DENIED_MESSAGES[accessDeniedReason]) {
+      setError(ACCESS_DENIED_MESSAGES[accessDeniedReason]);
+    }
+  }, [accessDeniedReason]);
 
   if (isLoading) {
     return (
@@ -46,7 +60,7 @@ export default function LoginScreen() {
     );
   }
 
-  if (user) {
+  if (user && profile) {
     return <Redirect href="/(tabs)" />;
   }
 
@@ -61,7 +75,6 @@ export default function LoginScreen() {
 
     try {
       await signIn(email, password);
-      router.replace('/(tabs)');
     } catch {
       setError('Invalid credentials or connection error.');
     } finally {

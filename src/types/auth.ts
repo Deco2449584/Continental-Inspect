@@ -1,7 +1,21 @@
 export type UserRole = 'admin' | 'operator';
 
-export type UserProfile = {
+/** Document shape in Firestore `employees` collection. */
+export type EmployeeRecord = {
   email: string;
-  role: UserRole;
-  updatedAt: string;
+  active: boolean;
+  name: string;
+  department: string;
+  employeeId: string;
+  photoUrl?: string;
 };
+
+/** Authenticated employee profile used in the app (role is derived). */
+export type EmployeeProfile = EmployeeRecord & {
+  /** Firestore document id */
+  docId: string;
+  role: UserRole;
+};
+
+/** @deprecated Use EmployeeProfile */
+export type UserProfile = EmployeeProfile;

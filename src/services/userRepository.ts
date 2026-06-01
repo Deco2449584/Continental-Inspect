@@ -1,21 +1,32 @@
-import { getApps, initializeApp } from 'firebase/app';
-import { User, createUserWithEmailAndPassword, getAuth } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 import {
-    collection,
-    deleteDoc,
-    doc,
-    getDoc,
-    getDocs,
-    orderBy,
-    query,
-    setDoc,
-    updateDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  updateDoc,
+  where,
 } from 'firebase/firestore';
 
 import { db } from '@/services/firebaseConfig';
-import type { UserProfile, UserRole } from '@/types/auth';
+import type { EmployeeProfile, EmployeeRecord, UserRole } from '@/types/auth';
 
-const USERS_COLLECTION = 'users';
+const EMPLOYEES_COLLECTION = 'employees';
+
+const ADMIN_DEPARTMENTS = new Set(['logistica', 'admin']);
+
+export class EmployeeAccessError extends Error {
+  readonly code: 'not_found' | 'inactive' | 'no_email' | 'firestore_unavailable';
+
+  constructor(code: EmployeeAccessError['code'], message: string) {
+    super(message);
+    this.name = 'EmployeeAccessError';
+    this.code = code;
+  }
+}
 
 function parseAdminEmails(): string[] {
   return (process.env.EXPO_PUBLIC_ADMIN_EMAILS ?? '')
@@ -33,182 +44,220 @@ export function isAdminEmail(email: string | null | undefined): boolean {
   return parseAdminEmails().includes(email.trim().toLowerCase());
 }
 
-/** Role from .env when Firestore is unavailable or not synced yet. */
-export function resolveRoleFromEmail(email: string | null | undefined): UserRole {
-  return isAdminEmail(email) ? 'admin' : 'operator';
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
 }
 
-export function buildFallbackProfile(user: User): UserProfile {
-  const email = user.email ?? '';
+function parseEmployeeRecord(raw: Record<string, unknown>): EmployeeRecord | null {
+  const email = typeof raw.email === 'string' ? raw.email.trim() : '';
+  if (!email) return null;
+
   return {
     email,
-    role: resolveRoleFromEmail(email),
-    updatedAt: new Date().toISOString(),
+    active: raw.active === true,
+    name: typeof raw.name === 'string' ? raw.name.trim() : '',
+    department: typeof raw.department === 'string' ? raw.department.trim() : '',
+    employeeId: typeof raw.employeeId === 'string' ? raw.employeeId.trim() : '',
+    photoUrl: typeof raw.photoUrl === 'string' ? raw.photoUrl.trim() : undefined,
   };
 }
 
-export function resolveUserRole(
-  user: User | null | undefined,
-  profile: UserProfile | null | undefined,
+/** Admin if department is logistica/admin or email is in EXPO_PUBLIC_ADMIN_EMAILS. */
+export function resolveRoleFromEmployee(
+  employee: Pick<EmployeeRecord, 'department'> | null | undefined,
+  email: string | null | undefined,
 ): UserRole {
-  if (!user) return 'operator';
-  if (isAdminEmail(user.email)) return 'admin';
-  if (profile?.role === 'admin') return 'admin';
-  return profile?.role === 'operator' ? 'operator' : 'operator';
+  if (isAdminEmail(email)) return 'admin';
+  const dept = employee?.department?.toLowerCase().trim() ?? '';
+  if (ADMIN_DEPARTMENTS.has(dept)) return 'admin';
+  return 'operator';
 }
 
-export type EnsureUserProfileResult = {
-  profile: UserProfile;
+export function resolveUserRole(
+  email: string | null | undefined,
+  profile: EmployeeProfile | null | undefined,
+): UserRole {
+  if (!email && !profile) return 'operator';
+  return resolveRoleFromEmployee(profile, email ?? profile?.email);
+}
+
+function toEmployeeProfile(docId: string, record: EmployeeRecord, email: string): EmployeeProfile {
+  return {
+    docId,
+    ...record,
+    email: record.email || email,
+    role: resolveRoleFromEmployee(record, email),
+  };
+}
+
+async function findEmployeeByAuthEmail(
+  email: string,
+  authUid: string,
+): Promise<{ docId: string; record: EmployeeRecord } | null> {
+  if (!db) return null;
+
+  const normalized = normalizeEmail(email);
+
+  const byUid = await getDoc(doc(db, EMPLOYEES_COLLECTION, authUid));
+  if (byUid.exists()) {
+    const record = parseEmployeeRecord(byUid.data() as Record<string, unknown>);
+    if (record && normalizeEmail(record.email) === normalized) {
+      return { docId: byUid.id, record };
+    }
+  }
+
+  const snapshot = await getDocs(
+    query(
+      collection(db, EMPLOYEES_COLLECTION),
+      where('email', '==', normalized),
+      limit(1),
+    ),
+  );
+
+  if (snapshot.empty) return null;
+
+  const document = snapshot.docs[0];
+  const record = parseEmployeeRecord(document.data() as Record<string, unknown>);
+  if (!record) return null;
+
+  return { docId: document.id, record };
+}
+
+export type LoadEmployeeProfileResult = {
+  profile: EmployeeProfile;
   syncedToFirestore: boolean;
 };
 
-export async function ensureUserProfile(user: User): Promise<EnsureUserProfileResult> {
+/**
+ * Loads and validates the signed-in user against `employees`.
+ * @throws {EmployeeAccessError} when not found, inactive, or Firestore unavailable
+ */
+export async function loadEmployeeProfile(
+  authUid: string,
+  email: string | null | undefined,
+): Promise<LoadEmployeeProfileResult> {
   if (!db) {
-    return { profile: buildFallbackProfile(user), syncedToFirestore: false };
+    throw new EmployeeAccessError(
+      'firestore_unavailable',
+      'Firestore is not configured.',
+    );
   }
 
-  const userRef = doc(db, USERS_COLLECTION, user.uid);
-  const email = user.email ?? '';
-  const shouldBeAdmin = isAdminEmail(email);
-  const now = new Date().toISOString();
-
-  try {
-    const snapshot = await getDoc(userRef);
-
-    if (!snapshot.exists()) {
-      const profile: UserProfile = {
-        email,
-        role: shouldBeAdmin ? 'admin' : 'operator',
-        updatedAt: now,
-      };
-      await setDoc(userRef, profile);
-      return { profile, syncedToFirestore: true };
-    }
-
-    const existing = snapshot.data() as UserProfile;
-    if (shouldBeAdmin && existing.role !== 'admin') {
-      const profile: UserProfile = { ...existing, email, role: 'admin', updatedAt: now };
-      await updateDoc(userRef, profile);
-      return { profile, syncedToFirestore: true };
-    }
-
-    return {
-      profile: {
-        email: existing.email ?? email,
-        role: existing.role === 'admin' || shouldBeAdmin ? 'admin' : 'operator',
-        updatedAt: existing.updatedAt ?? now,
-      },
-      syncedToFirestore: true,
-    };
-  } catch {
-    return { profile: buildFallbackProfile(user), syncedToFirestore: false };
+  if (!email?.trim()) {
+    throw new EmployeeAccessError('no_email', 'Account has no email address.');
   }
+
+  const found = await findEmployeeByAuthEmail(email, authUid);
+  if (!found) {
+    throw new EmployeeAccessError(
+      'not_found',
+      'No employee record found for this account.',
+    );
+  }
+
+  if (!found.record.active) {
+    throw new EmployeeAccessError(
+      'inactive',
+      'This employee account is not active.',
+    );
+  }
+
+  return {
+    profile: toEmployeeProfile(found.docId, found.record, email),
+    syncedToFirestore: true,
+  };
 }
 
-export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
-  if (!db) return null;
-
-  try {
-    const snapshot = await getDoc(doc(db, USERS_COLLECTION, uid));
-    if (!snapshot.exists()) return null;
-
-    const data = snapshot.data() as UserProfile;
-    return {
-      email: data.email ?? '',
-      role: data.role === 'admin' ? 'admin' : 'operator',
-      updatedAt: data.updatedAt ?? '',
-    };
-  } catch {
-    return null;
-  }
+/** @deprecated Use loadEmployeeProfile */
+export async function ensureUserProfile(user: User): Promise<LoadEmployeeProfileResult> {
+  return loadEmployeeProfile(user.uid, user.email);
 }
 
 export function getRoleLabel(role: UserRole): string {
   return role === 'admin' ? 'Administrator' : 'Operator';
 }
 
-export type ManagedUser = {
+export type ManagedEmployee = {
+  docId: string;
+  /** Same as docId — kept for legacy UI code */
   uid: string;
   email: string;
+  active: boolean;
+  name: string;
+  department: string;
+  employeeId: string;
+  photoUrl: string;
   role: UserRole;
-  updatedAt: string;
 };
 
-/** Fetch all user profiles (admin only — requires Firestore rules to allow). */
-export async function fetchAllUsers(): Promise<ManagedUser[]> {
+/** @deprecated Use ManagedEmployee */
+export type ManagedUser = ManagedEmployee;
+
+function mapManagedEmployee(
+  docId: string,
+  record: EmployeeRecord,
+): ManagedEmployee {
+  return {
+    docId,
+    uid: docId,
+    email: record.email,
+    active: record.active,
+    name: record.name,
+    department: record.department,
+    employeeId: record.employeeId,
+    photoUrl: record.photoUrl ?? '',
+    role: resolveRoleFromEmployee(record, record.email),
+  };
+}
+
+/** Lists employees (admin — requires Firestore rules). */
+export async function fetchAllEmployees(): Promise<ManagedEmployee[]> {
   if (!db) return [];
 
   try {
     const snapshot = await getDocs(
-      query(collection(db, USERS_COLLECTION), orderBy('email')),
+      query(collection(db, EMPLOYEES_COLLECTION), orderBy('email')),
     );
-    return snapshot.docs.map((d) => {
-      const data = d.data() as UserProfile;
-      return {
-        uid: d.id,
-        email: data.email ?? '',
-        role: data.role === 'admin' ? 'admin' : 'operator',
-        updatedAt: data.updatedAt ?? '',
-      };
-    });
+    return snapshot.docs
+      .map((document) => {
+        const record = parseEmployeeRecord(document.data() as Record<string, unknown>);
+        return record ? mapManagedEmployee(document.id, record) : null;
+      })
+      .filter((item): item is ManagedEmployee => item !== null);
   } catch {
     return [];
   }
 }
 
-/** Update the role of an existing user profile. */
-export async function updateUserRole(uid: string, role: UserRole): Promise<void> {
+/** @deprecated Use fetchAllEmployees */
+export async function fetchAllUsers(): Promise<ManagedEmployee[]> {
+  return fetchAllEmployees();
+}
+
+/** Promote/demote app access by department (admin departments grant admin UI). */
+export async function updateEmployeeDepartment(
+  docId: string,
+  department: string,
+): Promise<void> {
   if (!db) throw new Error('Firestore is not configured.');
-  await updateDoc(doc(db, USERS_COLLECTION, uid), {
-    role,
-    updatedAt: new Date().toISOString(),
+  await updateDoc(doc(db, EMPLOYEES_COLLECTION, docId), {
+    department: department.trim(),
   });
 }
 
-/** Delete a user profile document from Firestore. */
-export async function deleteUserProfile(uid: string): Promise<void> {
-  if (!db) throw new Error('Firestore is not configured.');
-  await deleteDoc(doc(db, USERS_COLLECTION, uid));
+/** @deprecated Use updateEmployeeDepartment */
+export async function updateUserRole(docId: string, role: UserRole): Promise<void> {
+  const department = role === 'admin' ? 'logistica' : 'operations';
+  await updateEmployeeDepartment(docId, department);
 }
 
-/**
- * Create a new Firebase Auth user + Firestore profile using a secondary
- * Firebase App instance so the admin session is not affected.
- */
-export async function createManagedUser(
-  email: string,
-  password: string,
-  role: UserRole,
-): Promise<ManagedUser> {
+/** Deactivates an employee instead of deleting the document. */
+export async function deactivateEmployee(docId: string): Promise<void> {
   if (!db) throw new Error('Firestore is not configured.');
+  await updateDoc(doc(db, EMPLOYEES_COLLECTION, docId), { active: false });
+}
 
-  // Use a secondary app so the current admin session is preserved
-  const secondaryAppName = '__user_creation__';
-  const existingApps = getApps();
-  const secondaryApp =
-    existingApps.find((a) => a.name === secondaryAppName) ??
-    initializeApp(
-      {
-        apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY ?? '',
-        authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN ?? '',
-        projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID ?? '',
-        storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET ?? '',
-        messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? '',
-        appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID ?? '',
-      },
-      secondaryAppName,
-    );
-
-  const secondaryAuth = getAuth(secondaryApp);
-  const credential = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
-  const uid = credential.user.uid;
-
-  // Sign out from secondary app immediately
-  await secondaryAuth.signOut();
-
-  const now = new Date().toISOString();
-  const profile: UserProfile = { email: email.trim(), role, updatedAt: now };
-  await setDoc(doc(db, USERS_COLLECTION, uid), profile);
-
-  return { uid, email: email.trim(), role, updatedAt: now };
+/** @deprecated Use deactivateEmployee */
+export async function deleteUserProfile(docId: string): Promise<void> {
+  await deactivateEmployee(docId);
 }

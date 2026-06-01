@@ -12,16 +12,15 @@ import {
     View,
 } from 'react-native';
 
-import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
-    createManagedUser,
-    deleteUserProfile,
-    fetchAllUsers,
+    deactivateEmployee,
+    fetchAllEmployees,
     getRoleLabel,
-    updateUserRole,
-    type ManagedUser,
+    resolveRoleFromEmployee,
+    updateEmployeeDepartment,
+    type ManagedEmployee,
 } from '@/services/userRepository';
 import { ACCENT, ACCENT_DIM, ACCENT_PRESSED } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
@@ -365,7 +364,7 @@ function AppInfoModal({
 
 // ─── Delete confirm modal ─────────────────────────────────────────────────────
 
-type DeleteModalState = { user: ManagedUser } | null;
+type DeleteModalState = { user: ManagedEmployee } | null;
 
 function DeleteConfirmModal({
   state,
@@ -417,7 +416,7 @@ function DeleteConfirmModal({
               disabled={isDeleting}>
               {isDeleting
                 ? <ActivityIndicator color="#FFFFFF" size="small" />
-                : <Text style={styles.modalDestructiveText}>Delete</Text>}
+                : <Text style={styles.modalDestructiveText}>Deactivate</Text>}
             </Pressable>
           </View>
         </Pressable>
@@ -426,213 +425,35 @@ function DeleteConfirmModal({
   );
 }
 
-// ─── Role selector ────────────────────────────────────────────────────────────
+const DEPARTMENT_OPTIONS = ['logistica', 'admin', 'operations', 'warehouse', 'export'] as const;
 
-function RoleSelector({
-  value,
-  onChange,
-  styles,
-  colors,
-}: {
-  value: UserRole;
-  onChange: (r: UserRole) => void;
-  styles: ReturnType<typeof createStyles>;
-  colors: AppColors;
-}) {
-  return (
-    <View style={styles.roleRow}>
-      {(['operator', 'admin'] as UserRole[]).map((r) => {
-        const active = value === r;
-        return (
-          <Pressable
-            key={r}
-            style={[styles.roleChip, active && styles.roleChipActive]}
-            onPress={() => onChange(r)}>
-            <Ionicons
-              name={r === 'admin' ? 'shield-checkmark-outline' : 'person-outline'}
-              size={15}
-              color={active ? ACCENT : colors.text.secondary}
-            />
-            <Text style={[styles.roleChipText, active && styles.roleChipTextActive]}>
-              {getRoleLabel(r)}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-// ─── Create User Modal ────────────────────────────────────────────────────────
-
-type CreateModalProps = {
-  visible: boolean;
+type EditDepartmentModalProps = {
+  user: ManagedEmployee | null;
   onClose: () => void;
-  onCreated: (user: ManagedUser) => void;
+  onUpdated: (docId: string, department: string, role: UserRole) => void;
   onError: (title: string, message: string) => void;
 };
 
-function CreateUserModal({ visible, onClose, onCreated, onError }: CreateModalProps) {
+function EditDepartmentModal({ user, onClose, onUpdated, onError }: EditDepartmentModalProps) {
   const styles = useThemedStyles(createStyles);
   const { colors } = useTheme();
-  const [email, setEmail]       = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole]         = useState<UserRole>('operator');
-  const [isSaving, setIsSaving] = useState(false);
-  const [emailFocused, setEmailFocused]       = useState(false);
-  const [passwordFocused, setPasswordFocused] = useState(false);
-
-  function reset() {
-    setEmail('');
-    setPassword('');
-    setRole('operator');
-    setIsSaving(false);
-  }
-
-  async function handleCreate() {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail || !password) {
-      onError('Missing fields', 'Please enter an email and password.');
-      return;
-    }
-    if (password.length < 6) {
-      onError('Weak password', 'Password must be at least 6 characters.');
-      return;
-    }
-    setIsSaving(true);
-    try {
-      const newUser = await createManagedUser(trimmedEmail, password, role);
-      onCreated(newUser);
-      reset();
-      onClose();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
-      if (msg.includes('email-already-in-use')) {
-        onError('Email in use', 'An account with this email already exists.');
-      } else if (msg.includes('invalid-email')) {
-        onError('Invalid email', 'Please enter a valid email address.');
-      } else {
-        onError('Could not create user', msg);
-      }
-    } finally {
-      setIsSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      statusBarTranslucent
-      onRequestClose={onClose}>
-      <KeyboardAvoidingView
-        style={styles.backdrop}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
-        <View style={styles.modalCard}>
-          <View style={styles.modalAccent} />
-          <View style={styles.modalHeader}>
-            <View style={styles.modalTitleRow}>
-              <View style={styles.modalIconWrap}>
-                <Ionicons name="person-add-outline" size={18} color={ACCENT} />
-              </View>
-              <Text style={styles.modalTitle}>New user</Text>
-            </View>
-            <Text style={styles.modalSubtitle}>
-              The user can sign in immediately with these credentials.
-            </Text>
-          </View>
-
-          <View style={styles.modalBody}>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Email</Text>
-              <TextInput
-                style={[styles.input, emailFocused && styles.inputFocused]}
-                value={email}
-                onChangeText={setEmail}
-                placeholder="user@example.com"
-                placeholderTextColor={colors.text.onSurfaceMuted}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-              />
-            </View>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Password</Text>
-              <TextInput
-                style={[styles.input, passwordFocused && styles.inputFocused]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Min. 6 characters"
-                placeholderTextColor={colors.text.onSurfaceMuted}
-                secureTextEntry
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-              />
-            </View>
-            <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Role</Text>
-              <RoleSelector value={role} onChange={setRole} styles={styles} colors={colors} />
-            </View>
-          </View>
-
-          <View style={styles.modalDivider} />
-          <View style={styles.modalFooter}>
-            <Pressable
-              style={styles.modalCancelBtn}
-              onPress={() => { reset(); onClose(); }}
-              disabled={isSaving}>
-              <Text style={styles.modalCancelText}>Cancel</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.modalConfirmBtn,
-                pressed && styles.modalConfirmBtnPressed,
-              ]}
-              onPress={handleCreate}
-              disabled={isSaving}>
-              {isSaving
-                ? <ActivityIndicator color={ACCENT} size="small" />
-                : <Text style={styles.modalConfirmText}>Create</Text>}
-            </Pressable>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-// ─── Edit Role Modal ──────────────────────────────────────────────────────────
-
-type EditRoleModalProps = {
-  user: ManagedUser | null;
-  onClose: () => void;
-  onUpdated: (uid: string, role: UserRole) => void;
-  onError: (title: string, message: string) => void;
-};
-
-function EditRoleModal({ user, onClose, onUpdated, onError }: EditRoleModalProps) {
-  const styles = useThemedStyles(createStyles);
-  const { colors } = useTheme();
-  const [role, setRole]         = useState<UserRole>('operator');
+  const [department, setDepartment] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (user) setRole(user.role);
+    if (user) setDepartment(user.department);
   }, [user]);
 
   async function handleSave() {
     if (!user) return;
     setIsSaving(true);
     try {
-      await updateUserRole(user.uid, role);
-      onUpdated(user.uid, role);
+      await updateEmployeeDepartment(user.docId, department);
+      const role = resolveRoleFromEmployee({ department }, user.email);
+      onUpdated(user.docId, department.trim(), role);
       onClose();
     } catch {
-      onError('Error', 'Could not update role. Please try again.');
+      onError('Error', 'Could not update department. Please try again.');
     } finally {
       setIsSaving(false);
     }
@@ -653,15 +474,34 @@ function EditRoleModal({ user, onClose, onUpdated, onError }: EditRoleModalProps
               <View style={styles.modalIconWrap}>
                 <Ionicons name="shield-outline" size={18} color={ACCENT} />
               </View>
-              <Text style={styles.modalTitle}>Edit role</Text>
+              <Text style={styles.modalTitle}>Edit department</Text>
             </View>
-            <Text style={styles.modalSubtitle}>{user?.email}</Text>
+            <Text style={styles.modalSubtitle}>
+              {user?.name} · {user?.email}
+            </Text>
+            <Text style={[styles.modalSubtitle, { marginTop: 4 }]}>
+              Admin access: logistica or admin
+            </Text>
           </View>
 
           <View style={styles.modalBody}>
             <View style={styles.fieldGroup}>
-              <Text style={styles.fieldLabel}>Role</Text>
-              <RoleSelector value={role} onChange={setRole} styles={styles} colors={colors} />
+              <Text style={styles.fieldLabel}>Department</Text>
+              <View style={styles.roleRow}>
+                {DEPARTMENT_OPTIONS.map((dept) => {
+                  const active = department.toLowerCase() === dept;
+                  return (
+                    <Pressable
+                      key={dept}
+                      style={[styles.roleChip, active && styles.roleChipActive]}
+                      onPress={() => setDepartment(dept)}>
+                      <Text style={[styles.roleChipText, active && styles.roleChipTextActive]}>
+                        {dept}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
             </View>
           </View>
 
@@ -677,9 +517,11 @@ function EditRoleModal({ user, onClose, onUpdated, onError }: EditRoleModalProps
               ]}
               onPress={handleSave}
               disabled={isSaving}>
-              {isSaving
-                ? <ActivityIndicator color={ACCENT} size="small" />
-                : <Text style={styles.modalConfirmText}>Save</Text>}
+              {isSaving ? (
+                <ActivityIndicator color={ACCENT} size="small" />
+              ) : (
+                <Text style={styles.modalConfirmText}>Save</Text>
+              )}
             </Pressable>
           </View>
         </Pressable>
@@ -697,12 +539,9 @@ type UserManagementSectionProps = {
 export function UserManagementSection({ currentUserUid }: UserManagementSectionProps) {
   const styles = useThemedStyles(createStyles);
   const { colors } = useTheme();
-  const { user: adminUser } = useAuth();
-
-  const [users, setUsers]               = useState<ManagedUser[]>([]);
+  const [users, setUsers]               = useState<ManagedEmployee[]>([]);
   const [isLoading, setIsLoading]       = useState(true);
-  const [showCreate, setShowCreate]     = useState(false);
-  const [editingUser, setEditingUser]   = useState<ManagedUser | null>(null);
+  const [editingUser, setEditingUser]   = useState<ManagedEmployee | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<DeleteModalState>(null);
   const [isDeleting, setIsDeleting]     = useState(false);
   const [infoModal, setInfoModal]       = useState<InfoModalState>(null);
@@ -713,24 +552,20 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
 
   const loadUsers = useCallback(async () => {
     setIsLoading(true);
-    const list = await fetchAllUsers();
+    const list = await fetchAllEmployees();
     setUsers(list);
     setIsLoading(false);
   }, []);
 
   useEffect(() => { loadUsers(); }, [loadUsers]);
 
-  function handleCreated(newUser: ManagedUser) {
+  function handleDepartmentUpdated(docId: string, department: string, role: UserRole) {
     setUsers((prev) =>
-      [...prev, newUser].sort((a, b) => a.email.localeCompare(b.email)),
+      prev.map((u) => (u.docId === docId ? { ...u, department, role } : u)),
     );
   }
 
-  function handleRoleUpdated(uid: string, role: UserRole) {
-    setUsers((prev) => prev.map((u) => (u.uid === uid ? { ...u, role } : u)));
-  }
-
-  function requestDelete(user: ManagedUser) {
+  function requestDelete(user: ManagedEmployee) {
     if (user.uid === currentUserUid) {
       showError('Not allowed', 'You cannot delete your own account.');
       return;
@@ -743,23 +578,12 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
     setIsDeleting(true);
     try {
       // Get admin's current ID token to authenticate the REST API call
-      const idToken = await adminUser?.getIdToken();
-      await deleteUserProfile(deleteTarget.user.uid, idToken ?? '');
-      setUsers((prev) => prev.filter((u) => u.uid !== deleteTarget.user.uid));
+      await deactivateEmployee(deleteTarget.user.docId);
+      setUsers((prev) => prev.filter((u) => u.docId !== deleteTarget.user.docId));
       setDeleteTarget(null);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : '';
+    } catch {
       setDeleteTarget(null);
-      if (msg.startsWith('AUTH_DELETE_FAILED')) {
-        // Firestore was deleted but Auth deletion failed — user is already locked out
-        showError(
-          'Partially deleted',
-          'The user profile was removed but the Auth account could not be deleted via REST API. You can remove it manually from the Firebase console.',
-        );
-        setUsers((prev) => prev.filter((u) => u.uid !== deleteTarget.user.uid));
-      } else {
-        showError('Delete failed', 'Could not delete the user. Please try again.');
-      }
+      showError('Deactivate failed', 'Could not deactivate the employee. Please try again.');
     } finally {
       setIsDeleting(false);
     }
@@ -767,7 +591,7 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
 
   return (
     <>
-      <Text style={styles.sectionTitle}>User management</Text>
+      <Text style={styles.sectionTitle}>Employee directory</Text>
 
       {isLoading ? (
         <View style={styles.emptyBox}>
@@ -776,7 +600,7 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
       ) : users.length === 0 ? (
         <View style={styles.emptyBox}>
           <Ionicons name="people-outline" size={32} color={colors.text.secondary} />
-          <Text style={styles.emptyText}>No users found</Text>
+          <Text style={styles.emptyText}>No employees found</Text>
         </View>
       ) : (
         <View style={{ gap: 8 }}>
@@ -786,7 +610,13 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
               <View key={user.uid} style={styles.userCard}>
                 <View style={styles.userAccent} />
                 <View style={styles.userBody}>
-                  <Text style={styles.userEmail} numberOfLines={1}>{user.email}</Text>
+                  <Text style={styles.userEmail} numberOfLines={1}>
+                    {user.name || user.email}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.text.onSurfaceMuted }}>
+                    {user.employeeId} · {user.department}
+                    {!user.active ? ' · inactive' : ''}
+                  </Text>
                   <View style={[styles.roleBadge, { backgroundColor: badge.bg }]}>
                     <Text style={[styles.roleBadgeText, { color: badge.text }]}>
                       {getRoleLabel(user.role)}
@@ -817,26 +647,16 @@ export function UserManagementSection({ currentUserUid }: UserManagementSectionP
         </View>
       )}
 
-      <Pressable
-        style={({ pressed }) => [styles.addBtn, pressed && styles.addBtnPressed]}
-        onPress={() => setShowCreate(true)}>
-        <Ionicons name="person-add-outline" size={18} color={ACCENT} />
-        <Text style={styles.addBtnText}>Add user</Text>
-      </Pressable>
+      <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.text.secondary }}>
+        New employees are provisioned in the Firestore employees collection (Auth + active
+        record required).
+      </Text>
 
-      {/* Create modal */}
-      <CreateUserModal
-        visible={showCreate}
-        onClose={() => setShowCreate(false)}
-        onCreated={handleCreated}
-        onError={showError}
-      />
-
-      {/* Edit role modal */}
-      <EditRoleModal
+      {/* Edit department modal */}
+      <EditDepartmentModal
         user={editingUser}
         onClose={() => setEditingUser(null)}
-        onUpdated={handleRoleUpdated}
+        onUpdated={handleDepartmentUpdated}
         onError={showError}
       />
 
