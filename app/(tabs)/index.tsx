@@ -1,6 +1,12 @@
 import { ContinentalInspectLogo } from '@/components/ContinentalInspectLogo';
 import { CargoCard } from '@/components/CargoCard';
 import { StatCard } from '@/components/StatCard';
+import {
+  METRIC_ATTENTION,
+  METRIC_LOADED,
+  METRIC_NEW_CARGO,
+  TodayOperationsDonut,
+} from '@/components/TodayOperationsDonut';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useMemo } from 'react';
@@ -50,40 +56,45 @@ function createIndexStyles(colors: AppColors) {
       paddingHorizontal: 20,
       paddingBottom: 24,
     },
-    brandRow: {
-      alignItems: 'flex-start',
-      marginTop: 4,
-      marginBottom: 16,
+    headerBlock: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 18,
+      gap: 12,
     },
     headerLogo: {
-      alignItems: 'flex-start',
-    },
-    header: {
-      marginBottom: 24,
+      flexShrink: 0,
     },
     headerText: {
-      gap: 4,
+      flex: 1,
+      alignItems: 'flex-end',
+      gap: 2,
     },
     greeting: {
       fontFamily: fonts.heading,
-      fontSize: 24,
+      fontSize: 22,
       color: colors.text.primary,
+      textAlign: 'right',
     },
     headerSubtitle: {
       fontFamily: fonts.body,
-      fontSize: 14,
+      fontSize: 12,
       color: colors.text.secondary,
+      textAlign: 'right',
+      lineHeight: 16,
     },
     adminBadge: {
       fontFamily: fonts.bodyMedium,
-      fontSize: 12,
+      fontSize: 11,
       color: colors.text.mutedOnDark,
-      marginTop: 4,
+      textAlign: 'right',
+      marginTop: 2,
     },
     statsRow: {
       flexDirection: 'row',
       gap: 8,
-      marginBottom: 20,
+      marginBottom: 16,
     },
     errorBanner: {
       fontFamily: fonts.body,
@@ -106,6 +117,7 @@ function createIndexStyles(colors: AppColors) {
       fontSize: 13,
       color: colors.text.secondary,
       marginBottom: 12,
+      lineHeight: 18,
     },
     emptyState: {
       alignItems: 'center',
@@ -194,20 +206,18 @@ export default function RecordsScreen() {
         }
         ListHeaderComponent={
           <>
-            <View style={styles.brandRow}>
-              <ContinentalInspectLogo width={140} style={styles.headerLogo} />
-            </View>
-            <View style={{ height: 16 }} />
-
-            <View style={styles.header}>
+            <View style={styles.headerBlock}>
+              <ContinentalInspectLogo width={112} style={styles.headerLogo} />
               <View style={styles.headerText}>
-                <Text style={styles.greeting}>Hi, {greetingName}</Text>
-                <Text style={styles.headerSubtitle}>
-                  {brand.panelTitle} · {brand.location}
+                <Text style={styles.greeting} numberOfLines={1}>
+                  Hi, {greetingName}
+                </Text>
+                <Text style={styles.headerSubtitle} numberOfLines={2}>
+                  {brand.panelTitle}
                 </Text>
                 {isAdmin ? (
-                  <Text style={styles.adminBadge}>
-                    Team inspections today · {getRoleLabel(role)}
+                  <Text style={styles.adminBadge} numberOfLines={1}>
+                    {getRoleLabel(role)} · team view
                   </Text>
                 ) : null}
               </View>
@@ -217,22 +227,28 @@ export default function RecordsScreen() {
               <StatCard
                 title="New cargo"
                 value={counts.newCargo}
-                accentColor={colors.accent.primary}
+                accentColor={METRIC_NEW_CARGO}
                 icon="cube-outline"
               />
               <StatCard
                 title="Loaded"
                 value={counts.loaded}
-                accentColor={colors.accent.primary}
+                accentColor={METRIC_LOADED}
                 icon="checkmark-circle-outline"
               />
               <StatCard
                 title="Requires attention"
                 value={counts.requiresAttention}
-                accentColor={colors.semantic.warning}
+                accentColor={METRIC_ATTENTION}
                 icon="alert-circle-outline"
               />
             </View>
+
+            <TodayOperationsDonut
+              newCargo={counts.newCargo}
+              loaded={counts.loaded}
+              requiresAttention={counts.requiresAttention}
+            />
 
             {inspectionsError ? (
               <Text style={styles.errorBanner}>
@@ -243,8 +259,8 @@ export default function RecordsScreen() {
             <Text style={styles.sectionTitle}>Today&apos;s inspections</Text>
             <Text style={styles.sectionHint}>
               {dailyInspections.length > 0
-                ? `${dailyInspections.length} registered on ${todayLabel} · tap to view`
-                : `No inspections on ${todayLabel} yet`}
+                ? `${dailyInspections.length} inspection(s) on ${todayLabel} · tap a card for details`
+                : `No inspections recorded on ${todayLabel} yet`}
             </Text>
           </>
         }
@@ -253,7 +269,8 @@ export default function RecordsScreen() {
             <Ionicons name="cube-outline" size={48} color={colors.text.secondary} />
             <Text style={styles.emptyTitle}>No inspections today</Text>
             <Text style={styles.emptyHint}>
-              Use the Scan tab to register a ULD, or Search for inspections from other dates.
+              Open the Scan tab to register a ULD, or use Search to find inspections from other
+              dates.
             </Text>
           </View>
         }
