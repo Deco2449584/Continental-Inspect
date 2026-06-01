@@ -156,7 +156,7 @@ function createStyles(colors: AppColors) {
 }
 
 export default function AccountScreen() {
-  const { user, role, isAdmin, profileSyncFailed, signOut } = useAuth();
+  const { user, profile, role, isAdmin, profileSyncFailed, signOut } = useAuth();
   const { colors, isDark, setColorScheme } = useTheme();
   const styles = useThemedStyles(createStyles);
   const emailMatchesAdminList = isAdminEmail(user?.email);
