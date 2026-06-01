@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CargoVideoEvidenceItem } from '@/components/CargoVideoEvidenceItem';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/AuthContext';
 import { useCargoInspections } from '@/context/VehiclesContext';
@@ -119,23 +120,8 @@ function createDetailStyles(colors: AppColors) {
       backgroundColor: colors.surface.muted,
     },
     photoIndex: { fontSize: 12, color: colors.text.onSurfaceMuted, textAlign: 'center' },
-    videoPlaceholder: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-      padding: 14,
-      borderRadius: 10,
-      backgroundColor: colors.surface.muted,
-      borderWidth: 1,
-      borderColor: colors.border.onSurface,
-      borderStyle: 'dashed',
-    },
-    videoPlaceholderText: {
-      flex: 1,
-      fontFamily: fonts.body,
-      fontSize: 13,
-      color: colors.text.onSurfaceMuted,
-      lineHeight: 18,
+    videoList: {
+      gap: 20,
     },
     noMedia: {
       fontSize: 14,
@@ -354,21 +340,18 @@ export default function CargoDetailScreen() {
               Video evidence ({inspection.videoEvidence.length})
             </Text>
             {inspection.videoEvidence.length > 0 ? (
-              inspection.videoEvidence.map((uri, index) => (
-                <View key={`${uri}-${index}`} style={styles.videoPlaceholder}>
-                  <Ionicons name="videocam" size={28} color={colors.accent.primary} />
-                  <Text style={styles.videoPlaceholderText}>
-                    Video {index + 1} stored — in-app playback coming soon.
-                  </Text>
-                </View>
-              ))
-            ) : (
-              <View style={styles.videoPlaceholder}>
-                <Ionicons name="videocam-outline" size={28} color={colors.text.onSurfaceMuted} />
-                <Text style={styles.videoPlaceholderText}>
-                  No videos attached. Use the scan form to add video evidence (coming soon).
-                </Text>
+              <View style={styles.videoList}>
+                {inspection.videoEvidence.map((uri, index) => (
+                  <CargoVideoEvidenceItem
+                    key={`${uri}-${index}`}
+                    videoUrl={uri}
+                    index={index}
+                    total={inspection.videoEvidence.length}
+                  />
+                ))}
               </View>
+            ) : (
+              <Text style={styles.noMedia}>No videos attached.</Text>
             )}
           </View>
         </ScrollView>
