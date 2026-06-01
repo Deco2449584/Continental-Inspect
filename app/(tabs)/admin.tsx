@@ -16,23 +16,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { DateRangeFilters } from '@/components/DateRangeFilters';
 import { UserManagementSection } from '@/components/UserManagementSection';
 import { useAuth } from '@/context/AuthContext';
-import { useCargoInspections } from '@/context/VehiclesContext';
+import { useCargoInspections } from '@/context/CargoInspectionsContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
-import { shareCargoInspectionPdf } from '@/utils/cargoInspectionPdf';
-import {
-  shareInspectionsAsCsv,
-  shareInspectionsAsExcel,
-} from '@/utils/exportVehicles';
+import { shareInspectionsAsCsv } from '@/utils/exportInspections';
 import {
   filterInspectionsByDateRange,
   getDateRangeForPreset,
   startOfMonth,
   type DateFilterPreset,
-} from '@/utils/filterVehicles';
+} from '@/utils/filterInspections';
 
 function createAdminStyles(colors: AppColors) {
   return StyleSheet.create({
@@ -161,7 +157,7 @@ export default function AdminScreen() {
   const { isAdmin, isLoading: authLoading, user } = useAuth();
   const { inspections, isLoading: inspectionsLoading } = useCargoInspections();
 
-  const [isExporting, setIsExporting] = useState<'csv' | 'excel' | 'pdf' | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
   const [datePreset, setDatePreset] = useState<DateFilterPreset>('week');
   const [customFrom, setCustomFrom] = useState(() => startOfMonth());
   const [customTo, setCustomTo] = useState(() => new Date());
@@ -176,52 +172,25 @@ export default function AdminScreen() {
     [inspections, dateRange],
   );
 
-  const handleExport = async (format: 'csv' | 'excel') => {
+  const handleExportCsv = async () => {
     if (exportInspections.length === 0) {
       Alert.alert('No records', 'No inspections in the selected date range.');
       return;
     }
 
-    setIsExporting(format);
+    setIsExporting(true);
     try {
-      if (format === 'csv') {
-        await shareInspectionsAsCsv(exportInspections);
-      } else {
-        await shareInspectionsAsExcel(exportInspections);
-      }
+      await shareInspectionsAsCsv(exportInspections);
     } catch {
-      Alert.alert('Export failed', 'Could not create or share the file. Please try again.');
+      Alert.alert('Export failed', 'Could not create or share the CSV report. Please try again.');
     } finally {
-      setIsExporting(null);
+      setIsExporting(false);
     }
   };
 
   if (!authLoading && !isAdmin) {
-    return <Redirect href="/(tabs)/" />;
+    return <Redirect href="/(tabs)" />;
   }
-
-  const handleExportPdf = async () => {
-    if (exportInspections.length === 0) {
-      Alert.alert('No records', 'No inspections in the selected date range.');
-      return;
-    }
-    if (exportInspections.length > 1) {
-      Alert.alert(
-        'PDF export',
-        'Bulk PDF export is not available yet. Open a single inspection and use Export PDF, or export CSV/Excel for the full range.',
-      );
-      return;
-    }
-
-    setIsExporting('pdf');
-    try {
-      await shareCargoInspectionPdf(exportInspections[0]);
-    } catch {
-      Alert.alert('PDF failed', 'Could not generate or share the report.');
-    } finally {
-      setIsExporting(null);
-    }
-  };
 
   if (authLoading || inspectionsLoading) {
     return (
@@ -267,53 +236,19 @@ export default function AdminScreen() {
 
         <Pressable
           style={({ pressed }) => [styles.actionBtn, pressed && styles.actionBtnPressed]}
-          disabled={isExporting !== null}
-          onPress={() => handleExport('csv')}>
+          disabled={isExporting}
+          onPress={() => void handleExportCsv()}>
           <Ionicons name="document-text-outline" size={22} color={colors.text.onAccent} />
           <View style={styles.actionText}>
-            <Text style={styles.actionTitle}>Export CSV</Text>
+            <Text style={styles.actionTitle}>Export CSV Report</Text>
             <Text style={styles.actionHint}>
-              {exportInspections.length} inspection(s) in range
+              {exportInspections.length} inspection(s) in selected date range
             </Text>
           </View>
-          {isExporting === 'csv' ? (
+          {isExporting ? (
             <ActivityIndicator color={colors.text.onAccent} />
           ) : (
             <Ionicons name="download-outline" size={22} color={colors.text.onAccent} />
-          )}
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.actionBtnSecondary, pressed && styles.actionBtnPressed]}
-          disabled={isExporting !== null}
-          onPress={() => handleExport('excel')}>
-          <Ionicons name="grid-outline" size={22} color={colors.accent.primary} />
-          <View style={styles.actionText}>
-            <Text style={styles.actionTitleDark}>Export Excel</Text>
-            <Text style={styles.actionHintDark}>Opens in Excel / Google Sheets</Text>
-          </View>
-          {isExporting === 'excel' ? (
-            <ActivityIndicator color={colors.accent.primary} />
-          ) : (
-            <Ionicons name="download-outline" size={22} color={colors.accent.primary} />
-          )}
-        </Pressable>
-
-        <Pressable
-          style={({ pressed }) => [styles.actionBtnSecondary, pressed && styles.actionBtnPressed]}
-          disabled={isExporting !== null}
-          onPress={handleExportPdf}>
-          <Ionicons name="document-outline" size={22} color={colors.accent.primary} />
-          <View style={styles.actionText}>
-            <Text style={styles.actionTitleDark}>Export PDF</Text>
-            <Text style={styles.actionHintDark}>
-              Available when exactly one inspection is in range
-            </Text>
-          </View>
-          {isExporting === 'pdf' ? (
-            <ActivityIndicator color={colors.accent.primary} />
-          ) : (
-            <Ionicons name="download-outline" size={22} color={colors.accent.primary} />
           )}
         </Pressable>
 

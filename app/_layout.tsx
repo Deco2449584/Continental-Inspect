@@ -18,8 +18,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator, ThemeLoadingScreen } from '@/components/RootNavigator';
 import { AuthProvider } from '@/context/AuthContext';
 import { ThemeProvider, useTheme } from '@/context/ThemeContext';
-import { VehicleCatalogProvider } from '@/context/VehicleCatalogContext';
-import { VehiclesProvider } from '@/context/VehiclesContext';
+import { CargoInspectionsProvider } from '@/context/CargoInspectionsContext';
 import { colors } from '@/theme/colors';
 
 function FontLoadingGate({ fontsLoaded }: { fontsLoaded: boolean }) {
@@ -31,11 +30,9 @@ function FontLoadingGate({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   return (
     <AuthProvider>
-      <VehicleCatalogProvider>
-        <VehiclesProvider>
-          <RootNavigator />
-        </VehiclesProvider>
-      </VehicleCatalogProvider>
+      <CargoInspectionsProvider>
+        <RootNavigator />
+      </CargoInspectionsProvider>
     </AuthProvider>
   );
 }

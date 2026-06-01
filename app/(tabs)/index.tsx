@@ -1,4 +1,4 @@
-import { FineShineLogo } from '@/components/FineShineLogo';
+import { ContinentalInspectLogo } from '@/components/ContinentalInspectLogo';
 import { CargoCard } from '@/components/CargoCard';
 import { StatCard } from '@/components/StatCard';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/context/AuthContext';
-import { useCargoInspections } from '@/context/VehiclesContext';
+import { useCargoInspections } from '@/context/CargoInspectionsContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRoleLabel } from '@/services/userRepository';
@@ -23,7 +23,7 @@ import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import type { CargoInspection } from '@/types';
-import { filterInspectionsToday, formatFilterDate, getTodayRange } from '@/utils/filterVehicles';
+import { filterInspectionsToday, formatFilterDate, getTodayRange } from '@/utils/filterInspections';
 
 function countTodayMetrics(inspections: CargoInspection[]) {
   const today = filterInspectionsToday(inspections);
@@ -195,7 +195,7 @@ export default function RecordsScreen() {
         ListHeaderComponent={
           <>
             <View style={styles.brandRow}>
-              <FineShineLogo width={140} style={styles.headerLogo} />
+              <ContinentalInspectLogo width={140} style={styles.headerLogo} />
             </View>
             <View style={{ height: 16 }} />
 

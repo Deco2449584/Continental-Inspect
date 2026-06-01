@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { FineShineLogo } from '@/components/FineShineLogo';
+import { ContinentalInspectLogo } from '@/components/ContinentalInspectLogo';
 import { useAuth } from '@/context/AuthContext';
 import { brand } from '@/theme/brand';
 import { darkPalette } from '@/theme/palettes';
@@ -93,7 +93,7 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.brandBlock}>
-            <FineShineLogo width={220} variant="onDark" />
+            <ContinentalInspectLogo width={220} variant="onDark" showWordmark />
             <Text style={styles.brandName}>{brand.name}</Text>
             <Text style={styles.tagline}>{brand.tagline}</Text>
             <Text style={styles.panelTitle}>

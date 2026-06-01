@@ -1,4 +1,4 @@
-export function formatVehicleDate(date: Date | string): string {
+export function formatInspectionDate(date: Date | string): string {
   const parsed = typeof date === 'string' ? new Date(date) : date;
   if (Number.isNaN(parsed.getTime())) return '—';
 

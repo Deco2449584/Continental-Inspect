@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Ionicons } from '@expo/vector-icons';
 
-import { FineShineLogo } from '@/components/FineShineLogo';
+import { ContinentalInspectLogo } from '@/components/ContinentalInspectLogo';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
@@ -192,7 +192,7 @@ export default function AccountScreen() {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}>
         <View style={styles.centerBlock}>
-          <FineShineLogo width={160} />
+          <ContinentalInspectLogo width={160} />
           <Text style={styles.title}>Account</Text>
           <Text style={styles.subtitle}>
             {brand.panelTitle} · {brand.location}

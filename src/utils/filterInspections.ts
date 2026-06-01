@@ -52,6 +52,7 @@ function inspectionDate(inspection: CargoInspection): Date {
   return new Date(inspection.registeredAt);
 }
 
+/** Filters inspections by ULD ID or AWB number only. */
 export function filterInspectionsBySearch(
   inspections: CargoInspection[],
   query: string,
@@ -60,10 +61,9 @@ export function filterInspectionsBySearch(
   if (!q) return inspections;
 
   return inspections.filter((item) => {
-    const haystack = [item.uldId, item.awbNumber, item.foodType, item.createdBy]
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(q);
+    const uldId = item.uldId.toLowerCase();
+    const awbNumber = item.awbNumber.toLowerCase();
+    return uldId.includes(q) || awbNumber.includes(q);
   });
 }
 
@@ -81,10 +81,7 @@ export function filterInspectionsByDateRange(
   });
 }
 
-export function filterInspectionsToday(
-  inspections: CargoInspection[],
-  _reference = new Date(),
-): CargoInspection[] {
+export function filterInspectionsToday(inspections: CargoInspection[]): CargoInspection[] {
   const { from, to } = getTodayRange();
   return filterInspectionsByDateRange(inspections, from, to);
 }
@@ -114,12 +111,3 @@ export function getDateRangeForPreset(
       return getTodayRange();
   }
 }
-
-/** @deprecated Use filterInspectionsBySearch */
-export const filterVehiclesBySearch = filterInspectionsBySearch;
-
-/** @deprecated Use filterInspectionsByDateRange */
-export const filterVehiclesByDateRange = filterInspectionsByDateRange;
-
-/** @deprecated Use filterInspectionsToday */
-export const filterVehiclesToday = filterInspectionsToday;

@@ -10,7 +10,7 @@ import { fonts } from '@/theme/typography';
 import {
     formatFilterDate,
     type DateFilterPreset,
-} from '@/utils/filterVehicles';
+} from '@/utils/filterInspections';
 
 type DateRangeFiltersProps = {
   preset: DateFilterPreset;

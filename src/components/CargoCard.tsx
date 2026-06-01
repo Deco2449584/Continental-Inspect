@@ -8,8 +8,8 @@ import { ACCENT, ACCENT_DIM } from '@/theme/accent';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import type { CargoInspection } from '@/types';
-import { formatVehicleDate } from '@/utils/formatDate';
-import { getConservationLabel } from '@/utils/vehicleLabels';
+import { getConservationLabel } from '@/utils/cargoLabels';
+import { formatInspectionDate } from '@/utils/formatDate';
 
 type CargoCardProps = {
   inspection: CargoInspection;
@@ -144,8 +144,8 @@ export function CargoCard({ inspection, onPress }: CargoCardProps) {
     inspection.photoEvidence.length + inspection.videoEvidence.length;
 
   const dateLabel = inspection.updatedAt
-    ? formatVehicleDate(inspection.updatedAt)
-    : formatVehicleDate(inspection.registeredAt);
+    ? formatInspectionDate(inspection.updatedAt)
+    : formatInspectionDate(inspection.registeredAt);
 
   const loaded = !inspection.hasIssues;
   const statusBg = loaded ? `${colors.accent.primary}22` : 'rgba(245, 158, 11, 0.22)';

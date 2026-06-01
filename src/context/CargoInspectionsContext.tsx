@@ -27,11 +27,8 @@ import type {
 
 export type { CargoInspection, NewCargoInspectionInput, UpdateCargoInspectionInput };
 
-type VehiclesContextValue = {
-  /** Cargo inspections loaded from Firestore. */
+type CargoInspectionsContextValue = {
   inspections: CargoInspection[];
-  /** @deprecated Prefer `inspections` — kept for gradual UI migration. */
-  vehicles: CargoInspection[];
   isLoading: boolean;
   isRefreshing: boolean;
   error: string | null;
@@ -46,9 +43,11 @@ type VehiclesContextValue = {
   deleteInspectionById: (inspectionId: string) => Promise<void>;
 };
 
-const VehiclesContext = createContext<VehiclesContextValue | undefined>(undefined);
+const CargoInspectionsContext = createContext<CargoInspectionsContextValue | undefined>(
+  undefined,
+);
 
-export function VehiclesProvider({ children }: { children: ReactNode }) {
+export function CargoInspectionsProvider({ children }: { children: ReactNode }) {
   const { user, isAdmin } = useAuth();
   const [inspections, setInspections] = useState<CargoInspection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -212,7 +211,6 @@ export function VehiclesProvider({ children }: { children: ReactNode }) {
   const value = useMemo(
     () => ({
       inspections,
-      vehicles: inspections,
       isLoading,
       isRefreshing,
       error,
@@ -237,16 +235,15 @@ export function VehiclesProvider({ children }: { children: ReactNode }) {
     ],
   );
 
-  return <VehiclesContext.Provider value={value}>{children}</VehiclesContext.Provider>;
+  return (
+    <CargoInspectionsContext.Provider value={value}>{children}</CargoInspectionsContext.Provider>
+  );
 }
 
-export function useVehicles(): VehiclesContextValue {
-  const context = useContext(VehiclesContext);
+export function useCargoInspections(): CargoInspectionsContextValue {
+  const context = useContext(CargoInspectionsContext);
   if (!context) {
-    throw new Error('useVehicles must be used within a VehiclesProvider');
+    throw new Error('useCargoInspections must be used within a CargoInspectionsProvider');
   }
   return context;
 }
-
-/** Preferred hook name for cargo inspection data. */
-export const useCargoInspections = useVehicles;

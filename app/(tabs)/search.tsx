@@ -14,7 +14,7 @@ import { CargoCard } from '@/components/CargoCard';
 import { DateRangeFilters } from '@/components/DateRangeFilters';
 import { RecordsSearchBar } from '@/components/RecordsSearchBar';
 import { useAuth } from '@/context/AuthContext';
-import { useCargoInspections } from '@/context/VehiclesContext';
+import { useCargoInspections } from '@/context/CargoInspectionsContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { brand } from '@/theme/brand';
@@ -27,7 +27,7 @@ import {
   getDateRangeForPreset,
   startOfMonth,
   type DateFilterPreset,
-} from '@/utils/filterVehicles';
+} from '@/utils/filterInspections';
 
 function createSearchStyles(colors: AppColors) {
   return StyleSheet.create({

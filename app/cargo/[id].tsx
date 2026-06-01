@@ -17,15 +17,15 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CargoVideoEvidenceSection } from '@/components/CargoVideoEvidenceSection';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/AuthContext';
-import { useCargoInspections } from '@/context/VehiclesContext';
+import { useCargoInspections } from '@/context/CargoInspectionsContext';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import { shareCargoInspectionPdf } from '@/utils/cargoInspectionPdf';
-import { formatVehicleDate } from '@/utils/formatDate';
-import { getConservationLabel } from '@/utils/vehicleLabels';
+import { getConservationLabel } from '@/utils/cargoLabels';
+import { formatInspectionDate } from '@/utils/formatDate';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const PHOTO_WIDTH = SCREEN_WIDTH - 40;
@@ -125,49 +125,28 @@ function createDetailStyles(colors: AppColors) {
       color: colors.text.onSurfaceMuted,
       fontStyle: 'italic',
     },
-    footer: {
-      paddingHorizontal: 20,
-      paddingTop: 12,
-      gap: 10,
-      borderTopWidth: 1,
-      borderTopColor: colors.border.default,
-      backgroundColor: colors.background.primary,
-    },
-    footerBtnPrimary: {
+    notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+    notFoundTitle: { fontSize: 20, fontWeight: '700', color: colors.text.primary },
+    headerIconBtn: { padding: 4 },
+    pdfBar: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
       gap: 10,
-      paddingVertical: 14,
-      borderRadius: 12,
-      backgroundColor: colors.accent.primary,
-    },
-    footerBtnPrimaryPressed: { backgroundColor: colors.accent.primaryPressed },
-    footerBtnOutline: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      paddingVertical: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
       borderRadius: 12,
       borderWidth: 2,
       borderColor: colors.accent.primary,
       backgroundColor: colors.surface.card,
     },
-    footerBtnOutlinePressed: { backgroundColor: 'rgba(2, 101, 220, 0.08)' },
-    footerBtnTextLight: {
+    pdfBarPressed: { backgroundColor: 'rgba(2, 101, 220, 0.08)' },
+    pdfBarDisabled: { opacity: 0.6 },
+    pdfBarText: {
       fontFamily: fonts.headingSemiBold,
-      fontSize: 16,
-      color: colors.text.onAccent,
-    },
-    footerBtnText: {
-      fontFamily: fonts.headingSemiBold,
-      fontSize: 16,
+      fontSize: 15,
       color: colors.accent.primary,
     },
-    notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-    notFoundTitle: { fontSize: 20, fontWeight: '700', color: colors.text.primary },
-    headerIconBtn: { padding: 4 },
   });
 }
 
@@ -270,7 +249,10 @@ export default function CargoDetailScreen() {
 
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[
+            styles.content,
+            { paddingBottom: Math.max(insets.bottom, 20) },
+          ]}
           showsVerticalScrollIndicator={false}>
           <View style={styles.heroCard}>
             <Text style={styles.heroUld}>{inspection.uldId}</Text>
@@ -279,12 +261,28 @@ export default function CargoDetailScreen() {
               <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
             </View>
             <Text style={styles.heroMeta}>
-              Registered {formatVehicleDate(inspection.registeredAt)}
+              Registered {formatInspectionDate(inspection.registeredAt)}
               {inspection.updatedAt
-                ? ` · Updated ${formatVehicleDate(inspection.updatedAt)}`
+                ? ` · Updated ${formatInspectionDate(inspection.updatedAt)}`
                 : ''}
             </Text>
           </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.pdfBar,
+              pressed && !isPdfLoading && styles.pdfBarPressed,
+              isPdfLoading && styles.pdfBarDisabled,
+            ]}
+            onPress={handleExportPdf}
+            disabled={isPdfLoading}>
+            {isPdfLoading ? (
+              <ActivityIndicator color={colors.accent.primary} />
+            ) : (
+              <Ionicons name="document-text-outline" size={22} color={colors.accent.primary} />
+            )}
+            <Text style={styles.pdfBarText}>Export Inspection PDF</Text>
+          </Pressable>
 
           <View style={styles.card}>
             <DetailRow
@@ -343,36 +341,6 @@ export default function CargoDetailScreen() {
             )}
           </View>
         </ScrollView>
-
-        {isAdmin ? (
-          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.footerBtnPrimary,
-                pressed && styles.footerBtnPrimaryPressed,
-              ]}
-              onPress={handleEdit}>
-              <Ionicons name="create-outline" size={20} color={colors.text.onAccent} />
-              <Text style={styles.footerBtnTextLight}>Edit inspection</Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                styles.footerBtnOutline,
-                pressed && styles.footerBtnOutlinePressed,
-              ]}
-              onPress={handleExportPdf}
-              disabled={isPdfLoading}>
-              {isPdfLoading ? (
-                <ActivityIndicator color={colors.accent.primary} />
-              ) : (
-                <>
-                  <Ionicons name="document-outline" size={22} color={colors.accent.primary} />
-                  <Text style={styles.footerBtnText}>Export PDF report</Text>
-                </>
-              )}
-            </Pressable>
-          </View>
-        ) : null}
       </SafeAreaView>
     </>
   );
