@@ -190,17 +190,11 @@ export function CargoVideoEvidenceSection({ videoUrls }: CargoVideoEvidenceSecti
       }
 
       if (result.reason === 'permission_denied') {
-        Alert.alert(
-          'Gallery access required',
-          'Continental Inspect needs permission to save downloaded video evidence to your device gallery. Enable Photos/Media access in system settings.',
-        );
+        Alert.alert('Download Failed', result.message);
         return;
       }
 
-      Alert.alert(
-        'Download failed',
-        'Could not download or save this video. Check your connection and try again.',
-      );
+      Alert.alert('Download Failed', result.message);
     } finally {
       setIsDownloading(false);
     }
