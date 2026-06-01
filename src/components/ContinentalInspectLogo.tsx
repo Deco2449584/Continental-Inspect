@@ -34,7 +34,7 @@ export function ContinentalInspectLogo({
         style={{
           width,
           height,
-          tintColor: resolved === 'onLight' ? '#000000' : undefined,
+          tintColor: resolved === 'onLight' ? '#000000' : '#FFFFFF',
         }}
         contentFit="contain"
       />
