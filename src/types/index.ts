@@ -1,4 +1,26 @@
-export type ConservationType = 'Congelado' | 'Refrigerado' | 'Ambiente';
+export type ConservationType = 'Frozen' | 'Refrigerated' | 'Ambient';
+
+export const CONSERVATION_TYPES: readonly ConservationType[] = [
+  'Frozen',
+  'Refrigerated',
+  'Ambient',
+] as const;
+
+const LEGACY_CONSERVATION_MAP: Record<string, ConservationType> = {
+  Congelado: 'Frozen',
+  Refrigerado: 'Refrigerated',
+  Ambiente: 'Ambient',
+  Frozen: 'Frozen',
+  Refrigerated: 'Refrigerated',
+  Ambient: 'Ambient',
+};
+
+/** Maps Firestore values (including legacy Spanish) to current English enums. */
+export function normalizeConservationType(value: string | undefined): ConservationType {
+  if (!value) return 'Ambient';
+  const trimmed = value.trim();
+  return LEGACY_CONSERVATION_MAP[trimmed] ?? 'Ambient';
+}
 
 export interface CargoInspection {
   id: string;
@@ -28,7 +50,7 @@ export type UpdateCargoInspectionInput = NewCargoInspectionInput;
 export const EMPTY_CARGO_INSPECTION_INPUT: NewCargoInspectionInput = {
   uldId: '',
   awbNumber: '',
-  conservationType: 'Ambiente',
+  conservationType: 'Ambient',
   foodType: '',
   weightKg: 0,
   boxCount: 0,

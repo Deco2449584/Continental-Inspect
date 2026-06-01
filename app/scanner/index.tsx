@@ -1,5 +1,6 @@
+import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,12 +27,11 @@ import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import {
+  CONSERVATION_TYPES,
   EMPTY_CARGO_INSPECTION_INPUT,
-  type ConservationType,
   type NewCargoInspectionInput,
 } from '@/types';
-
-const CONSERVATION_OPTIONS: ConservationType[] = ['Congelado', 'Refrigerado', 'Ambiente'];
+import { normalizeUldId } from '@/utils/uldId';
 
 type FormState = NewCargoInspectionInput;
 
@@ -60,11 +60,15 @@ export default function CargoInspectionFormScreen() {
     lookupInspectionByUldId,
   } = useCargoInspections();
 
+  const [permission, requestPermission] = useCameraPermissions();
+  const scanHandledRef = useRef<string | null>(null);
+
   const [form, setForm] = useState<FormState>({ ...EMPTY_CARGO_INSPECTION_INPUT });
   const [weightText, setWeightText] = useState('0');
   const [boxCountText, setBoxCountText] = useState('0');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   const isEditMode = Boolean(editingId);
 
@@ -107,13 +111,50 @@ export default function CargoInspectionFormScreen() {
     setBoxCountText(String(existing.boxCount));
   }, [editId, isAdmin, inspections, inspectionsLoading, router]);
 
+  const openScanner = useCallback(async () => {
+    if (isEditMode) return;
+
+    if (!permission?.granted) {
+      const result = await requestPermission();
+      if (!result.granted) {
+        Alert.alert(
+          'Camera permission',
+          'Camera access is required to scan ULD barcodes and QR codes.',
+        );
+        return;
+      }
+    }
+
+    scanHandledRef.current = null;
+    setShowScanner(true);
+  }, [isEditMode, permission, requestPermission]);
+
+  const closeScanner = useCallback(() => {
+    scanHandledRef.current = null;
+    setShowScanner(false);
+  }, []);
+
+  const handleBarcodeScanned = useCallback(
+    ({ data }: BarcodeScanningResult) => {
+      if (!showScanner || !data?.trim()) return;
+
+      const normalized = normalizeUldId(data);
+      if (!normalized || scanHandledRef.current === normalized) return;
+
+      scanHandledRef.current = normalized;
+      patchForm({ uldId: normalized });
+      setShowScanner(false);
+    },
+    [showScanner, patchForm],
+  );
+
   const buildPayload = (): NewCargoInspectionInput | null => {
     const uldId = form.uldId.trim();
     const awbNumber = form.awbNumber.trim();
     const foodType = form.foodType.trim();
 
     if (!uldId) {
-      Alert.alert('ULD required', 'Enter the ULD ID (e.g. AKE 12345 CX).');
+      Alert.alert('ULD required', 'Enter or scan the ULD ID (e.g. AKE 12345 CX).');
       return null;
     }
     if (!awbNumber) {
@@ -125,7 +166,7 @@ export default function CargoInspectionFormScreen() {
       return null;
     }
     if (form.hasIssues && !form.issueDescription?.trim()) {
-      Alert.alert('Issue description', 'Describe the issue when cargo has failures.');
+      Alert.alert('Issue description', 'Describe the issue when damage or problems are reported.');
       return null;
     }
 
@@ -159,7 +200,7 @@ export default function CargoInspectionFormScreen() {
       if (duplicate) {
         Alert.alert(
           'ULD already registered',
-          `${duplicate.uldId} was inspected on ${duplicate.awbNumber}. Open the existing record or use another ULD.`,
+          `${duplicate.uldId} is already on file (AWB ${duplicate.awbNumber}). Open the record or use another ULD.`,
         );
         setIsSaving(false);
         return;
@@ -176,7 +217,7 @@ export default function CargoInspectionFormScreen() {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '';
       if (message === 'DUPLICATE_ULD') {
-        Alert.alert('Duplicate ULD', 'This ULD is already registered today.');
+        Alert.alert('Duplicate ULD', 'This ULD is already registered.');
       } else {
         Alert.alert('Error', 'Could not save the inspection. Please try again.');
       }
@@ -196,6 +237,71 @@ export default function CargoInspectionFormScreen() {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.accent.primary} />
+      </View>
+    );
+  }
+
+  if (showScanner) {
+    if (!permission) {
+      return (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={colors.accent.primary} />
+        </View>
+      );
+    }
+
+    if (!permission.granted) {
+      return (
+        <SafeAreaView style={styles.safe}>
+          <View style={styles.permissionBox}>
+            <Text style={styles.permissionTitle}>Camera permission required</Text>
+            <Text style={styles.permissionText}>
+              Allow camera access to scan ULD barcodes and QR codes on container labels.
+            </Text>
+            <Pressable style={styles.primaryButton} onPress={requestPermission}>
+              <Text style={styles.primaryButtonText}>Grant permission</Text>
+            </Pressable>
+            <Pressable style={styles.secondaryButton} onPress={closeScanner}>
+              <Text style={styles.secondaryButtonText}>Cancel / Manual entry</Text>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      );
+    }
+
+    return (
+      <View style={styles.cameraRoot}>
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing="back"
+          barcodeScannerSettings={{
+            barcodeTypes: ['qr', 'code128', 'code39', 'ean13', 'ean8', 'upc_a', 'upc_e'],
+          }}
+          onBarcodeScanned={handleBarcodeScanned}
+        />
+        <View style={styles.cameraOverlay}>
+          <ScreenHeader
+            variant="overlay"
+            title="Scan ULD label"
+            subtitle={`${brand.name} · Barcode or QR`}
+            onBack={closeScanner}
+            backLabel="Cancel / Manual entry"
+          />
+          <Text style={styles.scanHint}>Align the barcode or QR code inside the frame</Text>
+          <View style={styles.frameContainer}>
+            <View style={styles.frame}>
+              <View style={[styles.corner, styles.cornerTL]} />
+              <View style={[styles.corner, styles.cornerTR]} />
+              <View style={[styles.corner, styles.cornerBL]} />
+              <View style={[styles.corner, styles.cornerBR]} />
+            </View>
+          </View>
+          <Pressable
+            style={({ pressed }) => [styles.manualEntryBtn, pressed && styles.manualEntryBtnPressed]}
+            onPress={closeScanner}>
+            <Text style={styles.manualEntryBtnText}>Cancel / Manual entry</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -220,21 +326,33 @@ export default function CargoInspectionFormScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <Text style={styles.formHint}>
-            Register AKE/PMC container intake. ULD field is ready for future OCR scanning.
+            Register AKE/PMC container intake. Scan the ULD label or enter the code manually.
           </Text>
 
           <View style={styles.formCard}>
             <FormField label="ULD ID">
-              <TextInput
-                style={styles.input}
-                value={form.uldId}
-                onChangeText={(text) => patchForm({ uldId: text })}
-                placeholder="AKE 12345 CX"
-                placeholderTextColor={colors.text.onSurfaceMuted}
-                autoCapitalize="characters"
-                autoCorrect={false}
-                editable={!isEditMode}
-              />
+              <View style={styles.uldRow}>
+                <TextInput
+                  style={[styles.input, styles.uldInput]}
+                  value={form.uldId}
+                  onChangeText={(text) => patchForm({ uldId: text })}
+                  placeholder="AKE 12345 CX"
+                  placeholderTextColor={colors.text.onSurfaceMuted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  editable={!isEditMode}
+                />
+                {!isEditMode ? (
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.scanButton,
+                      pressed && styles.scanButtonPressed,
+                    ]}
+                    onPress={openScanner}>
+                    <Text style={styles.scanButtonText}>Scan{'\n'}Barcode/QR</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </FormField>
 
             <FormField label="Air waybill (AWB)">
@@ -251,7 +369,7 @@ export default function CargoInspectionFormScreen() {
 
             <OptionGroup
               label="Conservation type"
-              options={CONSERVATION_OPTIONS}
+              options={CONSERVATION_TYPES}
               value={form.conservationType}
               onChange={(value) => patchForm({ conservationType: value })}
             />
@@ -261,7 +379,7 @@ export default function CargoInspectionFormScreen() {
                 style={styles.input}
                 value={form.foodType}
                 onChangeText={(text) => patchForm({ foodType: text })}
-                placeholder="e.g. SALMÓN FRESCO"
+                placeholder="e.g. FRESH SALMON"
                 placeholderTextColor={colors.text.onSurfaceMuted}
                 autoCorrect={false}
               />
@@ -296,9 +414,9 @@ export default function CargoInspectionFormScreen() {
 
             <View style={styles.switchRow}>
               <View style={styles.switchText}>
-                <Text style={styles.switchLabel}>Cargo has issues?</Text>
+                <Text style={styles.switchLabel}>Damage / issues detected?</Text>
                 <Text style={styles.switchHint}>
-                  Toggle on if damage, temperature breach, or documentation problems
+                  Turn on for damage, temperature breach, or documentation problems
                 </Text>
               </View>
               <Switch
@@ -339,7 +457,7 @@ export default function CargoInspectionFormScreen() {
                 pressed && styles.videoButtonPressed,
               ]}
               onPress={handleAddVideoPlaceholder}>
-              <Text style={styles.videoButtonText}>Add Video (Max 30s)</Text>
+              <Text style={styles.videoButtonText}>Add video (max 30s)</Text>
             </Pressable>
           </View>
 
@@ -355,7 +473,7 @@ export default function CargoInspectionFormScreen() {
               <ActivityIndicator color={colors.text.onAccent} />
             ) : (
               <Text style={styles.primaryButtonText}>
-                {isEditMode ? 'Update inspection' : 'Finalize Inspection'}
+                {isEditMode ? 'Update inspection' : 'Finalize inspection'}
               </Text>
             )}
           </Pressable>
@@ -368,7 +486,7 @@ export default function CargoInspectionFormScreen() {
               ]}
               onPress={() => saveInspection(true)}
               disabled={isSaving}>
-              <Text style={styles.secondaryButtonText}>Save & Next</Text>
+              <Text style={styles.secondaryButtonText}>Save & next</Text>
             </Pressable>
           ) : null}
         </ScrollView>
@@ -393,6 +511,10 @@ function FormField({
   );
 }
 
+const FRAME_SIZE = 260;
+const CORNER = 28;
+const CORNER_WIDTH = 4;
+
 function createFormStyles(colors: AppColors) {
   return StyleSheet.create({
     flex: { flex: 1 },
@@ -402,6 +524,98 @@ function createFormStyles(colors: AppColors) {
       justifyContent: 'center',
       alignItems: 'center',
       backgroundColor: colors.background.primary,
+    },
+    cameraRoot: {
+      flex: 1,
+      backgroundColor: '#000',
+    },
+    cameraOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(0,0,0,0.45)',
+    },
+    scanHint: {
+      fontFamily: fonts.body,
+      fontSize: 14,
+      color: 'rgba(255,255,255,0.9)',
+      textAlign: 'center',
+      marginBottom: 20,
+      paddingHorizontal: 24,
+    },
+    frameContainer: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingBottom: 24,
+    },
+    frame: {
+      width: FRAME_SIZE,
+      height: FRAME_SIZE,
+      position: 'relative',
+    },
+    corner: {
+      position: 'absolute',
+      width: CORNER,
+      height: CORNER,
+      borderColor: colors.accent.primary,
+    },
+    cornerTL: {
+      top: 0,
+      left: 0,
+      borderTopWidth: CORNER_WIDTH,
+      borderLeftWidth: CORNER_WIDTH,
+    },
+    cornerTR: {
+      top: 0,
+      right: 0,
+      borderTopWidth: CORNER_WIDTH,
+      borderRightWidth: CORNER_WIDTH,
+    },
+    cornerBL: {
+      bottom: 0,
+      left: 0,
+      borderBottomWidth: CORNER_WIDTH,
+      borderLeftWidth: CORNER_WIDTH,
+    },
+    cornerBR: {
+      bottom: 0,
+      right: 0,
+      borderBottomWidth: CORNER_WIDTH,
+      borderRightWidth: CORNER_WIDTH,
+    },
+    manualEntryBtn: {
+      marginHorizontal: 24,
+      marginBottom: 32,
+      paddingVertical: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.5)',
+      backgroundColor: 'rgba(0,0,0,0.35)',
+    },
+    manualEntryBtnPressed: { opacity: 0.85 },
+    manualEntryBtnText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: 15,
+      color: '#FFFFFF',
+    },
+    permissionBox: {
+      flex: 1,
+      justifyContent: 'center',
+      paddingHorizontal: 24,
+      gap: 16,
+    },
+    permissionTitle: {
+      fontFamily: fonts.headingSemiBold,
+      fontSize: 20,
+      color: colors.text.primary,
+      textAlign: 'center',
+    },
+    permissionText: {
+      fontFamily: fonts.body,
+      fontSize: 15,
+      color: colors.text.secondary,
+      textAlign: 'center',
+      lineHeight: 22,
     },
     formContent: { padding: 20, paddingTop: 8, gap: 16 },
     formHint: {
@@ -424,6 +638,14 @@ function createFormStyles(colors: AppColors) {
       fontSize: 14,
       color: colors.text.onSurface,
     },
+    uldRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 10,
+    },
+    uldInput: {
+      flex: 1,
+    },
     input: {
       backgroundColor: colors.background.secondary,
       borderWidth: 1,
@@ -434,6 +656,25 @@ function createFormStyles(colors: AppColors) {
       fontSize: 16,
       fontFamily: fonts.body,
       color: colors.text.onSurface,
+    },
+    scanButton: {
+      minWidth: 88,
+      borderRadius: 10,
+      backgroundColor: colors.accent.primary,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    scanButtonPressed: {
+      backgroundColor: colors.accent.primaryPressed,
+    },
+    scanButtonText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: 11,
+      color: colors.text.onAccent,
+      textAlign: 'center',
+      lineHeight: 14,
     },
     textArea: {
       backgroundColor: colors.background.secondary,

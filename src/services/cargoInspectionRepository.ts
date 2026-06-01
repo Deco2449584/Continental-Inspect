@@ -25,6 +25,7 @@ import type {
   NewCargoInspectionInput,
   UpdateCargoInspectionInput,
 } from '@/types';
+import { normalizeConservationType } from '@/types';
 import { normalizeUldId } from '@/utils/uldId';
 
 export const CARGO_INSPECTIONS_COLLECTION = 'cargo_inspections';
@@ -84,7 +85,9 @@ function mapDocumentToCargoInspection(
     id,
     uldId: data.uldId,
     awbNumber: data.awbNumber,
-    conservationType: data.conservationType,
+    conservationType: normalizeConservationType(
+      data.conservationType as string | undefined,
+    ),
     foodType: data.foodType,
     weightKg: data.weightKg ?? 0,
     boxCount: data.boxCount ?? 0,
