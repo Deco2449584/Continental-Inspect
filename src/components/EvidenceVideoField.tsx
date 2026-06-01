@@ -1,17 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { InfoModal } from '@/components/InfoModal';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import type { AppColors } from '@/theme/palettes';
+import {
+  MAX_VIDEO_DURATION_SEC,
+  validateVideoAsset,
+  VIDEO_TOO_LONG_MODAL,
+} from '@/utils/evidenceMediaValidation';
 
-const VIDEO_MAX_DURATION_SEC = 30;
 const VIDEO_QUALITY = 0;
 
 const VIDEO_PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   mediaTypes: ['videos'],
-  videoMaxDuration: VIDEO_MAX_DURATION_SEC,
+  videoMaxDuration: MAX_VIDEO_DURATION_SEC,
   quality: VIDEO_QUALITY,
   allowsEditing: false,
 };
@@ -126,10 +132,17 @@ function createStyles(colors: AppColors) {
 export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps) {
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
+  const [showVideoTooLongModal, setShowVideoTooLongModal] = useState(false);
 
-  const appendVideo = (uri: string | undefined) => {
-    if (!uri) return;
-    onChange([...videos, uri]);
+  const tryAppendVideoAsset = (asset: ImagePicker.ImagePickerAsset | undefined) => {
+    if (!asset?.uri) return;
+
+    if (!validateVideoAsset(asset)) {
+      setShowVideoTooLongModal(true);
+      return;
+    }
+
+    onChange([...videos, asset.uri]);
   };
 
   const handleRecordVideo = async () => {
@@ -138,8 +151,8 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
 
     const result = await ImagePicker.launchCameraAsync(VIDEO_PICKER_OPTIONS);
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      appendVideo(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) {
+      tryAppendVideoAsset(result.assets[0]);
     }
   };
 
@@ -152,8 +165,8 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
       allowsMultipleSelection: false,
     });
 
-    if (!result.canceled && result.assets[0]?.uri) {
-      appendVideo(result.assets[0].uri);
+    if (!result.canceled && result.assets[0]) {
+      tryAppendVideoAsset(result.assets[0]);
     }
   };
 
@@ -163,15 +176,23 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
 
   return (
     <View style={styles.container}>
+      <InfoModal
+        visible={showVideoTooLongModal}
+        icon={VIDEO_TOO_LONG_MODAL.icon}
+        title={VIDEO_TOO_LONG_MODAL.title}
+        message={VIDEO_TOO_LONG_MODAL.message}
+        onConfirm={() => setShowVideoTooLongModal(false)}
+      />
+
       <Text style={styles.label}>Video evidence</Text>
       <Text style={styles.hint}>
-        Record or upload a clip (max {VIDEO_MAX_DURATION_SEC}s, compressed)
+        Record or upload a clip (max {MAX_VIDEO_DURATION_SEC}s, compressed)
       </Text>
 
       <View style={styles.actions}>
         <Pressable
           style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
-          onPress={handleRecordVideo}>
+          onPress={() => void handleRecordVideo()}>
           <Text style={styles.actionButtonText}>Record video</Text>
         </Pressable>
         <Pressable
@@ -180,7 +201,7 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
             styles.actionButtonSecondary,
             pressed && styles.actionButtonPressed,
           ]}
-          onPress={handlePickFromLibrary}>
+          onPress={() => void handlePickFromLibrary()}>
           <Text style={styles.actionButtonTextSecondary}>Upload video</Text>
         </Pressable>
       </View>
