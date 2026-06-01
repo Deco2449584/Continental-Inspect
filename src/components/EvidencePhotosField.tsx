@@ -192,7 +192,7 @@ export function EvidencePhotosField({
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Photo evidence</Text>
-      <Text style={styles.hint}>Take or select photos of the vehicle condition</Text>
+      <Text style={styles.hint}>Take or select photos of the cargo / ULD condition</Text>
 
       <View style={styles.actions}>
         <Pressable

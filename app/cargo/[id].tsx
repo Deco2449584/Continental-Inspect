@@ -1,0 +1,408 @@
+import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
+import { Stack, useLocalSearchParams, useRouter, type Href } from 'expo-router';
+import { useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Dimensions,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ScreenHeader } from '@/components/ScreenHeader';
+import { useAuth } from '@/context/AuthContext';
+import { useCargoInspections } from '@/context/VehiclesContext';
+import { useTheme } from '@/context/ThemeContext';
+import { useThemedStyles } from '@/hooks/useThemedStyles';
+import { brand } from '@/theme/brand';
+import type { AppColors } from '@/theme/palettes';
+import { fonts } from '@/theme/typography';
+import { shareCargoInspectionPdf } from '@/utils/cargoInspectionPdf';
+import { formatVehicleDate } from '@/utils/formatDate';
+import { getConservationLabel } from '@/utils/vehicleLabels';
+
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const PHOTO_WIDTH = SCREEN_WIDTH - 40;
+const PHOTO_HEIGHT = 200;
+
+function createDetailStyles(colors: AppColors) {
+  return StyleSheet.create({
+    safe: { flex: 1, backgroundColor: colors.background.primary },
+    centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      backgroundColor: colors.background.primary,
+    },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16, gap: 14 },
+    heroCard: {
+      backgroundColor: colors.surface.card,
+      borderRadius: 14,
+      padding: 16,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.border.onSurface,
+    },
+    heroUld: {
+      fontFamily: fonts.heading,
+      fontSize: 22,
+      color: colors.text.onSurface,
+    },
+    heroAwb: {
+      fontFamily: fonts.bodyMedium,
+      fontSize: 14,
+      color: colors.text.onSurfaceMuted,
+    },
+    heroMeta: {
+      fontFamily: fonts.body,
+      fontSize: 12,
+      color: colors.text.onSurfaceMuted,
+      marginTop: 4,
+    },
+    statusBadge: {
+      alignSelf: 'flex-start',
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+      borderRadius: 6,
+      marginTop: 4,
+    },
+    statusText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: 11,
+      letterSpacing: 0.4,
+      textTransform: 'uppercase',
+    },
+    card: {
+      backgroundColor: colors.surface.card,
+      borderRadius: 14,
+      padding: 16,
+      gap: 12,
+      borderWidth: 1,
+      borderColor: colors.border.onSurface,
+    },
+    row: { gap: 4 },
+    rowLabel: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.text.onSurfaceMuted,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    },
+    rowValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text.onSurface,
+    },
+    sectionLabel: {
+      fontFamily: fonts.headingSemiBold,
+      fontSize: 14,
+      color: colors.text.onSurface,
+    },
+    issueText: {
+      fontFamily: fonts.body,
+      fontSize: 15,
+      lineHeight: 22,
+      color: colors.text.onSurface,
+    },
+    gallery: { gap: 12, paddingVertical: 4 },
+    photoWrap: { width: PHOTO_WIDTH, gap: 6 },
+    photo: {
+      width: PHOTO_WIDTH,
+      height: PHOTO_HEIGHT,
+      borderRadius: 12,
+      backgroundColor: colors.surface.muted,
+    },
+    photoIndex: { fontSize: 12, color: colors.text.onSurfaceMuted, textAlign: 'center' },
+    videoPlaceholder: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      padding: 14,
+      borderRadius: 10,
+      backgroundColor: colors.surface.muted,
+      borderWidth: 1,
+      borderColor: colors.border.onSurface,
+      borderStyle: 'dashed',
+    },
+    videoPlaceholderText: {
+      flex: 1,
+      fontFamily: fonts.body,
+      fontSize: 13,
+      color: colors.text.onSurfaceMuted,
+      lineHeight: 18,
+    },
+    noMedia: {
+      fontSize: 14,
+      color: colors.text.onSurfaceMuted,
+      fontStyle: 'italic',
+    },
+    footer: {
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      gap: 10,
+      borderTopWidth: 1,
+      borderTopColor: colors.border.default,
+      backgroundColor: colors.background.primary,
+    },
+    footerBtnPrimary: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 14,
+      borderRadius: 12,
+      backgroundColor: colors.accent.primary,
+    },
+    footerBtnPrimaryPressed: { backgroundColor: colors.accent.primaryPressed },
+    footerBtnOutline: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 2,
+      borderColor: colors.accent.primary,
+      backgroundColor: colors.surface.card,
+    },
+    footerBtnOutlinePressed: { backgroundColor: 'rgba(2, 101, 220, 0.08)' },
+    footerBtnTextLight: {
+      fontFamily: fonts.headingSemiBold,
+      fontSize: 16,
+      color: colors.text.onAccent,
+    },
+    footerBtnText: {
+      fontFamily: fonts.headingSemiBold,
+      fontSize: 16,
+      color: colors.accent.primary,
+    },
+    notFound: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+    notFoundTitle: { fontSize: 20, fontWeight: '700', color: colors.text.primary },
+    headerIconBtn: { padding: 4 },
+  });
+}
+
+function DetailRow({
+  label,
+  value,
+  styles,
+}: {
+  label: string;
+  value: string;
+  styles: ReturnType<typeof createDetailStyles>;
+}) {
+  return (
+    <View style={styles.row}>
+      <Text style={styles.rowLabel}>{label}</Text>
+      <Text style={styles.rowValue}>{value}</Text>
+    </View>
+  );
+}
+
+export default function CargoDetailScreen() {
+  const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createDetailStyles);
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { isAdmin } = useAuth();
+  const { inspections, isLoading } = useCargoInspections();
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+
+  const inspection = useMemo(
+    () => inspections.find((item) => item.id === id),
+    [inspections, id],
+  );
+
+  const handleEdit = () => {
+    if (!inspection || !isAdmin) return;
+    router.push({
+      pathname: '/scanner',
+      params: { editId: inspection.id },
+    } as Href);
+  };
+
+  const handleExportPdf = async () => {
+    if (!inspection) return;
+    setIsPdfLoading(true);
+    try {
+      await shareCargoInspectionPdf(inspection);
+    } catch {
+      Alert.alert('PDF failed', 'Could not generate or share the report. Please try again.');
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color={colors.accent.primary} />
+      </View>
+    );
+  }
+
+  if (!inspection) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+          <ScreenHeader title="Inspection" onBack={() => router.back()} />
+          <View style={styles.notFound}>
+            <Text style={styles.notFoundTitle}>Inspection not found</Text>
+          </View>
+        </SafeAreaView>
+      </>
+    );
+  }
+
+  const loaded = !inspection.hasIssues;
+  const statusBg = loaded ? `${colors.accent.primary}22` : 'rgba(245, 158, 11, 0.22)';
+  const statusColor = loaded ? colors.accent.primary : colors.semantic.warning;
+  const statusLabel = loaded ? 'LOADED' : 'REQUIRES ATTENTION';
+
+  return (
+    <>
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView style={styles.safe} edges={['left', 'right', 'bottom']}>
+        <ScreenHeader
+          title="Cargo inspection"
+          subtitle={brand.name}
+          onBack={() => router.back()}
+          backLabel="Records"
+          rightElement={
+            isAdmin ? (
+              <Pressable onPress={handleEdit} hitSlop={12} style={styles.headerIconBtn}>
+                <Ionicons name="create-outline" size={24} color={colors.accent.primary} />
+              </Pressable>
+            ) : null
+          }
+        />
+
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          <View style={styles.heroCard}>
+            <Text style={styles.heroUld}>{inspection.uldId}</Text>
+            <Text style={styles.heroAwb}>AWB {inspection.awbNumber}</Text>
+            <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
+              <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+            </View>
+            <Text style={styles.heroMeta}>
+              Registered {formatVehicleDate(inspection.registeredAt)}
+              {inspection.updatedAt
+                ? ` · Updated ${formatVehicleDate(inspection.updatedAt)}`
+                : ''}
+            </Text>
+          </View>
+
+          <View style={styles.card}>
+            <DetailRow
+              label="Conservation"
+              value={getConservationLabel(inspection.conservationType)}
+              styles={styles}
+            />
+            <DetailRow label="Food type" value={inspection.foodType} styles={styles} />
+            <DetailRow label="Weight" value={`${inspection.weightKg} kg`} styles={styles} />
+            <DetailRow label="Box count" value={String(inspection.boxCount)} styles={styles} />
+            {isAdmin ? (
+              <DetailRow label="Operator" value={inspection.createdBy} styles={styles} />
+            ) : null}
+          </View>
+
+          {inspection.hasIssues ? (
+            <View style={styles.card}>
+              <Text style={styles.sectionLabel}>Issue description</Text>
+              <Text style={styles.issueText}>
+                {inspection.issueDescription?.trim() || 'No description provided.'}
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>
+              Photo evidence ({inspection.photoEvidence.length})
+            </Text>
+            {inspection.photoEvidence.length > 0 ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.gallery}>
+                {inspection.photoEvidence.map((uri, index) => (
+                  <View key={`${uri}-${index}`} style={styles.photoWrap}>
+                    <Image source={{ uri }} style={styles.photo} contentFit="cover" />
+                    <Text style={styles.photoIndex}>
+                      {index + 1} / {inspection.photoEvidence.length}
+                    </Text>
+                  </View>
+                ))}
+              </ScrollView>
+            ) : (
+              <Text style={styles.noMedia}>No photos attached.</Text>
+            )}
+          </View>
+
+          <View style={styles.card}>
+            <Text style={styles.sectionLabel}>
+              Video evidence ({inspection.videoEvidence.length})
+            </Text>
+            {inspection.videoEvidence.length > 0 ? (
+              inspection.videoEvidence.map((uri, index) => (
+                <View key={`${uri}-${index}`} style={styles.videoPlaceholder}>
+                  <Ionicons name="videocam" size={28} color={colors.accent.primary} />
+                  <Text style={styles.videoPlaceholderText}>
+                    Video {index + 1} stored — in-app playback coming soon.
+                  </Text>
+                </View>
+              ))
+            ) : (
+              <View style={styles.videoPlaceholder}>
+                <Ionicons name="videocam-outline" size={28} color={colors.text.onSurfaceMuted} />
+                <Text style={styles.videoPlaceholderText}>
+                  No videos attached. Use the scan form to add video evidence (coming soon).
+                </Text>
+              </View>
+            )}
+          </View>
+        </ScrollView>
+
+        {isAdmin ? (
+          <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.footerBtnPrimary,
+                pressed && styles.footerBtnPrimaryPressed,
+              ]}
+              onPress={handleEdit}>
+              <Ionicons name="create-outline" size={20} color={colors.text.onAccent} />
+              <Text style={styles.footerBtnTextLight}>Edit inspection</Text>
+            </Pressable>
+            <Pressable
+              style={({ pressed }) => [
+                styles.footerBtnOutline,
+                pressed && styles.footerBtnOutlinePressed,
+              ]}
+              onPress={handleExportPdf}
+              disabled={isPdfLoading}>
+              {isPdfLoading ? (
+                <ActivityIndicator color={colors.accent.primary} />
+              ) : (
+                <>
+                  <Ionicons name="document-outline" size={22} color={colors.accent.primary} />
+                  <Text style={styles.footerBtnText}>Export PDF report</Text>
+                </>
+              )}
+            </Pressable>
+          </View>
+        ) : null}
+      </SafeAreaView>
+    </>
+  );
+}

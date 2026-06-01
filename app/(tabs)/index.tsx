@@ -178,7 +178,7 @@ export default function RecordsScreen() {
           <CargoCard
             inspection={item}
             onPress={() =>
-              router.push(`/vehicle/${encodeURIComponent(item.id)}` as Href)
+              router.push(`/cargo/${encodeURIComponent(item.id)}` as Href)
             }
           />
         )}

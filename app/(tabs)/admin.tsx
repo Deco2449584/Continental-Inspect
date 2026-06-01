@@ -16,16 +16,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { DateRangeFilters } from '@/components/DateRangeFilters';
 import { UserManagementSection } from '@/components/UserManagementSection';
 import { useAuth } from '@/context/AuthContext';
+import { useCargoInspections } from '@/context/VehiclesContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useVehicleCatalog } from '@/context/VehicleCatalogContext';
-import { useVehicles } from '@/context/VehiclesContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
-import { shareVehiclesAsCsv, shareVehiclesAsExcel } from '@/utils/exportVehicles';
+import { shareCargoInspectionPdf } from '@/utils/cargoInspectionPdf';
 import {
-  filterVehiclesByDateRange,
+  shareInspectionsAsCsv,
+  shareInspectionsAsExcel,
+} from '@/utils/exportVehicles';
+import {
+  filterInspectionsByDateRange,
   getDateRangeForPreset,
   startOfMonth,
   type DateFilterPreset,
@@ -156,40 +159,35 @@ export default function AdminScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createAdminStyles);
   const { isAdmin, isLoading: authLoading, user } = useAuth();
-  const { catalog } = useVehicleCatalog();
-  const { vehicles, isLoading: vehiclesLoading } = useVehicles();
+  const { inspections, isLoading: inspectionsLoading } = useCargoInspections();
 
-  const [isExporting, setIsExporting] = useState<'csv' | 'excel' | null>(null);
+  const [isExporting, setIsExporting] = useState<'csv' | 'excel' | 'pdf' | null>(null);
   const [datePreset, setDatePreset] = useState<DateFilterPreset>('week');
   const [customFrom, setCustomFrom] = useState(() => startOfMonth());
   const [customTo, setCustomTo] = useState(() => new Date());
-
-  if (!authLoading && !isAdmin) {
-    return <Redirect href="/(tabs)/" />;
-  }
 
   const dateRange = useMemo(
     () => getDateRangeForPreset(datePreset, customFrom, customTo),
     [datePreset, customFrom, customTo],
   );
 
-  const exportVehicles = useMemo(
-    () => filterVehiclesByDateRange(vehicles, dateRange.from, dateRange.to),
-    [vehicles, dateRange],
+  const exportInspections = useMemo(
+    () => filterInspectionsByDateRange(inspections, dateRange.from, dateRange.to),
+    [inspections, dateRange],
   );
 
   const handleExport = async (format: 'csv' | 'excel') => {
-    if (exportVehicles.length === 0) {
-      Alert.alert('No records', 'No records in the selected date range.');
+    if (exportInspections.length === 0) {
+      Alert.alert('No records', 'No inspections in the selected date range.');
       return;
     }
 
     setIsExporting(format);
     try {
       if (format === 'csv') {
-        await shareVehiclesAsCsv(exportVehicles, catalog.types);
+        await shareInspectionsAsCsv(exportInspections);
       } else {
-        await shareVehiclesAsExcel(exportVehicles, catalog.types);
+        await shareInspectionsAsExcel(exportInspections);
       }
     } catch {
       Alert.alert('Export failed', 'Could not create or share the file. Please try again.');
@@ -198,7 +196,34 @@ export default function AdminScreen() {
     }
   };
 
-  if (authLoading || vehiclesLoading) {
+  if (!authLoading && !isAdmin) {
+    return <Redirect href="/(tabs)/" />;
+  }
+
+  const handleExportPdf = async () => {
+    if (exportInspections.length === 0) {
+      Alert.alert('No records', 'No inspections in the selected date range.');
+      return;
+    }
+    if (exportInspections.length > 1) {
+      Alert.alert(
+        'PDF export',
+        'Bulk PDF export is not available yet. Open a single inspection and use Export PDF, or export CSV/Excel for the full range.',
+      );
+      return;
+    }
+
+    setIsExporting('pdf');
+    try {
+      await shareCargoInspectionPdf(exportInspections[0]);
+    } catch {
+      Alert.alert('PDF failed', 'Could not generate or share the report.');
+    } finally {
+      setIsExporting(null);
+    }
+  };
+
+  if (authLoading || inspectionsLoading) {
     return (
       <View style={styles.loading}>
         <ActivityIndicator size="large" color={colors.accent.primary} />
@@ -209,29 +234,26 @@ export default function AdminScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Hero */}
         <View style={styles.hero}>
           <View style={styles.iconCircle}>
             <Ionicons name="shield-checkmark" size={28} color={colors.accent.primary} />
           </View>
           <Text style={styles.title}>Admin panel</Text>
           <Text style={styles.subtitle}>
-            Export inspection records from {brand.name}. Filter by date before downloading.
+            Export cargo inspections from {brand.name}. Filter by date before downloading.
           </Text>
         </View>
 
-        {/* Stats */}
         <View style={styles.statsCard}>
           <View style={styles.statsIconWrap}>
             <Ionicons name="server-outline" size={28} color={colors.accent.primary} />
           </View>
-          <Text style={styles.statsValue}>{exportVehicles.length}</Text>
+          <Text style={styles.statsValue}>{exportInspections.length}</Text>
           <Text style={styles.statsLabel}>
-            Records in range ({vehicles.length} total)
+            Inspections in range ({inspections.length} total)
           </Text>
         </View>
 
-        {/* Date filter — same component as Search screen */}
         <DateRangeFilters
           preset={datePreset}
           onPresetChange={setDatePreset}
@@ -241,7 +263,6 @@ export default function AdminScreen() {
           onCustomToChange={setCustomTo}
         />
 
-        {/* Export buttons */}
         <Text style={styles.sectionTitle}>Download reports</Text>
 
         <Pressable
@@ -252,7 +273,7 @@ export default function AdminScreen() {
           <View style={styles.actionText}>
             <Text style={styles.actionTitle}>Export CSV</Text>
             <Text style={styles.actionHint}>
-              {exportVehicles.length} record(s) in range
+              {exportInspections.length} inspection(s) in range
             </Text>
           </View>
           {isExporting === 'csv' ? (
@@ -278,7 +299,24 @@ export default function AdminScreen() {
           )}
         </Pressable>
 
-        {/* User management */}
+        <Pressable
+          style={({ pressed }) => [styles.actionBtnSecondary, pressed && styles.actionBtnPressed]}
+          disabled={isExporting !== null}
+          onPress={handleExportPdf}>
+          <Ionicons name="document-outline" size={22} color={colors.accent.primary} />
+          <View style={styles.actionText}>
+            <Text style={styles.actionTitleDark}>Export PDF</Text>
+            <Text style={styles.actionHintDark}>
+              Available when exactly one inspection is in range
+            </Text>
+          </View>
+          {isExporting === 'pdf' ? (
+            <ActivityIndicator color={colors.accent.primary} />
+          ) : (
+            <Ionicons name="download-outline" size={22} color={colors.accent.primary} />
+          )}
+        </Pressable>
+
         {user ? <UserManagementSection currentUserUid={user.uid} /> : null}
       </ScrollView>
     </SafeAreaView>
