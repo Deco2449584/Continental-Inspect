@@ -8,6 +8,7 @@ import type { AppColors } from '@/theme/palettes';
 type RecordsSearchBarProps = {
   value: string;
   onChangeText: (text: string) => void;
+  placeholder?: string;
 };
 
 function createStyles(colors: AppColors) {
@@ -33,7 +34,11 @@ function createStyles(colors: AppColors) {
   });
 }
 
-export function RecordsSearchBar({ value, onChangeText }: RecordsSearchBarProps) {
+export function RecordsSearchBar({
+  value,
+  onChangeText,
+  placeholder = 'Search by ULD serial or AWB...',
+}: RecordsSearchBarProps) {
   const styles = useThemedStyles(createStyles);
   const { colors } = useTheme();
 
@@ -44,7 +49,7 @@ export function RecordsSearchBar({ value, onChangeText }: RecordsSearchBarProps)
         style={styles.input}
         value={value}
         onChangeText={onChangeText}
-        placeholder="Search by VIN or model..."
+        placeholder={placeholder}
         placeholderTextColor={colors.text.secondary}
         autoCapitalize="characters"
         autoCorrect={false}

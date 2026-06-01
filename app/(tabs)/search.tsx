@@ -10,19 +10,19 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { CargoCard } from '@/components/CargoCard';
 import { DateRangeFilters } from '@/components/DateRangeFilters';
 import { RecordsSearchBar } from '@/components/RecordsSearchBar';
-import { VehicleCard } from '@/components/VehicleCard';
 import { useAuth } from '@/context/AuthContext';
+import { useCargoInspections } from '@/context/VehiclesContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useVehicles } from '@/context/VehiclesContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
 import {
-  filterVehiclesByDateRange,
-  filterVehiclesBySearch,
+  filterInspectionsByDateRange,
+  filterInspectionsBySearch,
   formatFilterDate,
   getDateRangeForPreset,
   startOfMonth,
@@ -102,25 +102,19 @@ function createSearchStyles(colors: AppColors) {
 
 function describeRange(
   preset: DateFilterPreset,
-  from: Date | null,
-  to: Date | null,
+  from: Date,
+  to: Date,
 ): string {
-  if (preset === 'day' && from) {
-    return `Showing records for ${formatFilterDate(from)}`;
+  if (preset === 'day') {
+    return `Showing inspections for ${formatFilterDate(from)}`;
   }
-  if (preset === 'week' && from && to) {
+  if (preset === 'week') {
     return `${formatFilterDate(from)} – ${formatFilterDate(to)}`;
   }
-  if (preset === 'month' && from) {
-    return `Showing records for ${from.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`;
+  if (preset === 'month') {
+    return `Showing inspections for ${from.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}`;
   }
-  if (preset === 'custom') {
-    if (from && to) return `${formatFilterDate(from)} – ${formatFilterDate(to)}`;
-    if (from) return `From ${formatFilterDate(from)}`;
-    if (to) return `Until ${formatFilterDate(to)}`;
-    return 'Select a custom date range';
-  }
-  return '';
+  return `${formatFilterDate(from)} – ${formatFilterDate(to)}`;
 }
 
 export default function SearchScreen() {
@@ -128,7 +122,7 @@ export default function SearchScreen() {
   const { colors } = useTheme();
   const styles = useThemedStyles(createSearchStyles);
   const { isLoading: authLoading } = useAuth();
-  const { vehicles, isLoading: vehiclesLoading } = useVehicles();
+  const { inspections, isLoading: inspectionsLoading } = useCargoInspections();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [datePreset, setDatePreset] = useState<DateFilterPreset>('week');
@@ -140,17 +134,21 @@ export default function SearchScreen() {
     [datePreset, customFrom, customTo],
   );
 
-  const filteredVehicles = useMemo(() => {
-    const byDate = filterVehiclesByDateRange(vehicles, dateRange.from, dateRange.to);
-    return filterVehiclesBySearch(byDate, searchQuery);
-  }, [vehicles, dateRange, searchQuery]);
+  const filteredInspections = useMemo(() => {
+    const byDate = filterInspectionsByDateRange(
+      inspections,
+      dateRange.from,
+      dateRange.to,
+    );
+    return filterInspectionsBySearch(byDate, searchQuery);
+  }, [inspections, dateRange, searchQuery]);
 
   const rangeLabel = useMemo(
     () => describeRange(datePreset, dateRange.from, dateRange.to),
     [datePreset, dateRange],
   );
 
-  const isLoading = authLoading || vehiclesLoading;
+  const isLoading = authLoading || inspectionsLoading;
 
   if (isLoading) {
     return (
@@ -161,15 +159,14 @@ export default function SearchScreen() {
   }
 
   return (
-    
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <View style={{ height: 16 }} />
       <FlatList
-        data={filteredVehicles}
+        data={filteredInspections}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <VehicleCard
-            vehicle={item}
+          <CargoCard
+            inspection={item}
             onPress={() =>
               router.push(`/vehicle/${encodeURIComponent(item.id)}` as Href)
             }
@@ -182,11 +179,15 @@ export default function SearchScreen() {
             <View style={styles.header}>
               <Text style={styles.title}>Advanced search</Text>
               <Text style={styles.subtitle}>
-                {brand.panelTitle} · Filter by date and VIN or model
+                {brand.panelTitle} · Filter by date, ULD or AWB
               </Text>
             </View>
 
-            <RecordsSearchBar value={searchQuery} onChangeText={setSearchQuery} />
+            <RecordsSearchBar
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search by ULD serial or AWB..."
+            />
 
             <DateRangeFilters
               preset={datePreset}
@@ -199,19 +200,20 @@ export default function SearchScreen() {
 
             <Text style={styles.rangeSummary}>{rangeLabel}</Text>
             <Text style={styles.resultsTitle}>
-              {filteredVehicles.length} record{filteredVehicles.length === 1 ? '' : 's'}
+              {filteredInspections.length} inspection
+              {filteredInspections.length === 1 ? '' : 's'}
             </Text>
-            {filteredVehicles.length > 0 ? (
-              <Text style={styles.resultsHint}>Tap a record to view details</Text>
+            {filteredInspections.length > 0 ? (
+              <Text style={styles.resultsHint}>Tap an inspection to view details</Text>
             ) : null}
           </>
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
             <Ionicons name="search-outline" size={48} color={colors.text.secondary} />
-            <Text style={styles.emptyTitle}>No records found</Text>
+            <Text style={styles.emptyTitle}>No inspections found</Text>
             <Text style={styles.emptyHint}>
-              Try another date range or search by VIN or model keyword.
+              Try another date range or search by ULD serial or AWB number.
             </Text>
           </View>
         }

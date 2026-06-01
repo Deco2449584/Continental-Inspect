@@ -83,10 +83,36 @@ export function filterInspectionsByDateRange(
 
 export function filterInspectionsToday(
   inspections: CargoInspection[],
-  reference = new Date(),
+  _reference = new Date(),
 ): CargoInspection[] {
   const { from, to } = getTodayRange();
   return filterInspectionsByDateRange(inspections, from, to);
+}
+
+export function startOfMonth(reference = new Date()): Date {
+  return new Date(reference.getFullYear(), reference.getMonth(), 1);
+}
+
+export function getDateRangeForPreset(
+  preset: DateFilterPreset,
+  customFrom: Date,
+  customTo: Date,
+): { from: Date; to: Date } {
+  switch (preset) {
+    case 'day':
+      return getTodayRange();
+    case 'week':
+      return getWeekRange();
+    case 'month':
+      return getMonthRange();
+    case 'custom':
+      return {
+        from: startOfDay(customFrom),
+        to: endOfDay(customTo),
+      };
+    default:
+      return getTodayRange();
+  }
 }
 
 /** @deprecated Use filterInspectionsBySearch */

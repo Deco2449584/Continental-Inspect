@@ -1,42 +1,37 @@
 import { FineShineLogo } from '@/components/FineShineLogo';
+import { CargoCard } from '@/components/CargoCard';
+import { StatCard } from '@/components/StatCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, type Href } from 'expo-router';
 import { useMemo } from 'react';
 import {
-    ActivityIndicator,
-    FlatList,
-    RefreshControl,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { StatCard } from '@/components/StatCard';
-import { VehicleCard } from '@/components/VehicleCard';
 import { useAuth } from '@/context/AuthContext';
+import { useCargoInspections } from '@/context/VehiclesContext';
 import { useTheme } from '@/context/ThemeContext';
-import { useVehicles } from '@/context/VehiclesContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import { getRoleLabel } from '@/services/userRepository';
 import { brand } from '@/theme/brand';
 import type { AppColors } from '@/theme/palettes';
 import { fonts } from '@/theme/typography';
-import type { Vehicle, VehicleType } from '@/types';
-import { filterVehiclesToday, formatFilterDate, getTodayRange } from '@/utils/filterVehicles';
+import type { CargoInspection } from '@/types';
+import { filterInspectionsToday, formatFilterDate, getTodayRange } from '@/utils/filterVehicles';
 
-function typeAccents(colors: AppColors): Record<string, string> {
+function countTodayMetrics(inspections: CargoInspection[]) {
+  const today = filterInspectionsToday(inspections);
   return {
-    nuevo: colors.accent.primary,
-    usado: colors.semantic.info,
-    redetailing: colors.semantic.warning,
+    newCargo: today.length,
+    loaded: today.filter((item) => !item.hasIssues).length,
+    requiresAttention: today.filter((item) => item.hasIssues).length,
   };
-}
-
-function countByType(vehicles: Vehicle[], type: VehicleType): number {
-  return vehicles.filter((v) =>
-    v.type.split(' + ').map((t) => t.trim()).includes(type),
-  ).length;
 }
 
 function createIndexStyles(colors: AppColors) {
@@ -87,7 +82,7 @@ function createIndexStyles(colors: AppColors) {
     },
     statsRow: {
       flexDirection: 'row',
-      gap: 10,
+      gap: 8,
       marginBottom: 20,
     },
     errorBanner: {
@@ -146,24 +141,24 @@ export default function RecordsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const styles = useThemedStyles(createIndexStyles);
-  const accents = useMemo(() => typeAccents(colors), [colors]);
   const { user, isAdmin, role, isLoading: authLoading } = useAuth();
-  const { vehicles, isLoading: vehiclesLoading, isRefreshing, error: vehiclesError, refreshRecords } =
-    useVehicles();
+  const {
+    inspections,
+    isLoading: inspectionsLoading,
+    isRefreshing,
+    error: inspectionsError,
+    refreshRecords,
+  } = useCargoInspections();
   const todayLabel = useMemo(() => formatFilterDate(getTodayRange().from), []);
 
-  const dailyVehicles = useMemo(() => filterVehiclesToday(vehicles), [vehicles]);
-
-  const counts = useMemo(
-    () => ({
-      nuevo: countByType(dailyVehicles, 'nuevo'),
-      usado: countByType(dailyVehicles, 'usado'),
-      redetailing: countByType(dailyVehicles, 'redetailing'),
-    }),
-    [dailyVehicles],
+  const dailyInspections = useMemo(
+    () => filterInspectionsToday(inspections),
+    [inspections],
   );
 
-  const isLoading = authLoading || vehiclesLoading;
+  const counts = useMemo(() => countTodayMetrics(inspections), [inspections]);
+
+  const isLoading = authLoading || inspectionsLoading;
   const greetingName = user?.email?.split('@')[0] ?? 'Operator';
 
   if (isLoading) {
@@ -177,11 +172,11 @@ export default function RecordsScreen() {
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <FlatList
-        data={dailyVehicles}
+        data={dailyInspections}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <VehicleCard
-            vehicle={item}
+          <CargoCard
+            inspection={item}
             onPress={() =>
               router.push(`/vehicle/${encodeURIComponent(item.id)}` as Href)
             }
@@ -199,9 +194,9 @@ export default function RecordsScreen() {
         }
         ListHeaderComponent={
           <>
-             <View style={styles.brandRow}>
+            <View style={styles.brandRow}>
               <FineShineLogo width={140} style={styles.headerLogo} />
-            </View> 
+            </View>
             <View style={{ height: 16 }} />
 
             <View style={styles.header}>
@@ -212,7 +207,7 @@ export default function RecordsScreen() {
                 </Text>
                 {isAdmin ? (
                   <Text style={styles.adminBadge}>
-                    Team records today · {getRoleLabel(role)}
+                    Team inspections today · {getRoleLabel(role)}
                   </Text>
                 ) : null}
               </View>
@@ -220,45 +215,45 @@ export default function RecordsScreen() {
 
             <View style={styles.statsRow}>
               <StatCard
-                title="New"
-                value={counts.nuevo}
-                accentColor={accents.nuevo}
-                icon="sparkles-outline"
+                title="New cargo"
+                value={counts.newCargo}
+                accentColor={colors.accent.primary}
+                icon="cube-outline"
               />
               <StatCard
-                title="Used"
-                value={counts.usado}
-                accentColor={accents.usado}
-                icon="car-outline"
+                title="Loaded"
+                value={counts.loaded}
+                accentColor={colors.accent.primary}
+                icon="checkmark-circle-outline"
               />
               <StatCard
-                title="Redetailing"
-                value={counts.redetailing}
-                accentColor={accents.redetailing}
-                icon="color-wand-outline"
+                title="Requires attention"
+                value={counts.requiresAttention}
+                accentColor={colors.semantic.warning}
+                icon="alert-circle-outline"
               />
             </View>
 
-            {vehiclesError ? (
+            {inspectionsError ? (
               <Text style={styles.errorBanner}>
-                Could not load records: {vehiclesError}
+                Could not load inspections: {inspectionsError}
               </Text>
             ) : null}
 
-            <Text style={styles.sectionTitle}>Today&apos;s records</Text>
+            <Text style={styles.sectionTitle}>Today&apos;s inspections</Text>
             <Text style={styles.sectionHint}>
-              {dailyVehicles.length > 0
-                ? `${dailyVehicles.length} registered on ${todayLabel} · tap to view`
-                : `No registrations on ${todayLabel} yet`}
+              {dailyInspections.length > 0
+                ? `${dailyInspections.length} registered on ${todayLabel} · tap to view`
+                : `No inspections on ${todayLabel} yet`}
             </Text>
           </>
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={48} color={colors.text.secondary} />
-            <Text style={styles.emptyTitle}>No records today</Text>
+            <Ionicons name="cube-outline" size={48} color={colors.text.secondary} />
+            <Text style={styles.emptyTitle}>No inspections today</Text>
             <Text style={styles.emptyHint}>
-              Use the Scan tab to register a vehicle, or Search for records from other dates.
+              Use the Scan tab to register a ULD, or Search for inspections from other dates.
             </Text>
           </View>
         }
