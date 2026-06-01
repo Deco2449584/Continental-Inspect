@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CargoVideoEvidenceItem } from '@/components/CargoVideoEvidenceItem';
+import { CargoVideoEvidenceSection } from '@/components/CargoVideoEvidenceSection';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useAuth } from '@/context/AuthContext';
 import { useCargoInspections } from '@/context/VehiclesContext';
@@ -120,9 +120,6 @@ function createDetailStyles(colors: AppColors) {
       backgroundColor: colors.surface.muted,
     },
     photoIndex: { fontSize: 12, color: colors.text.onSurfaceMuted, textAlign: 'center' },
-    videoList: {
-      gap: 20,
-    },
     noMedia: {
       fontSize: 14,
       color: colors.text.onSurfaceMuted,
@@ -340,16 +337,7 @@ export default function CargoDetailScreen() {
               Video evidence ({inspection.videoEvidence.length})
             </Text>
             {inspection.videoEvidence.length > 0 ? (
-              <View style={styles.videoList}>
-                {inspection.videoEvidence.map((uri, index) => (
-                  <CargoVideoEvidenceItem
-                    key={`${uri}-${index}`}
-                    videoUrl={uri}
-                    index={index}
-                    total={inspection.videoEvidence.length}
-                  />
-                ))}
-              </View>
+              <CargoVideoEvidenceSection videoUrls={inspection.videoEvidence} />
             ) : (
               <Text style={styles.noMedia}>No videos attached.</Text>
             )}
