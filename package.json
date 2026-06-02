@@ -12,6 +12,7 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
+    "eas:env:push": "eas env:push --environment preview --path .env && eas env:push --environment production --path .env",
     "build:android:apk": "eas build --platform android --profile preview",
     "build:android:prod": "eas build --platform android --profile production"
   },
@@ -57,6 +58,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.1.0",
+    "dotenv": "^16.4.7",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
     "typescript": "~5.9.2"

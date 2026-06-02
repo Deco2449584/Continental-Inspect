@@ -41,7 +41,11 @@ export function ContinentalInspectLogo({
       {showWordmark ? (
         <View style={styles.wordmark}>
           <Text style={[styles.appName, { color: textColor }]}>{brand.appName}</Text>
-          <Text style={[styles.tagline, { color: colors.text.onSurfaceMuted }]}>
+          <Text
+            style={[
+              styles.tagline,
+              { color: resolved === 'onLight' ? colors.text.onSurfaceMuted : 'rgba(255,255,255,0.75)' },
+            ]}>
             {brand.tagline}
           </Text>
         </View>

@@ -93,18 +93,14 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}>
           <View style={styles.brandBlock}>
-            <ContinentalInspectLogo width={220} variant="onDark" showWordmark />
-            <Text style={styles.brandName}>{brand.name}</Text>
-            <Text style={styles.tagline}>{brand.tagline}</Text>
-            <Text style={styles.panelTitle}>
-              {brand.panelTitle} · {brand.location}
-            </Text>
+            <ContinentalInspectLogo width={200} variant="onDark" showWordmark />
+            <Text style={styles.locationLine}>{brand.panelTitle}</Text>
           </View>
 
           <View style={styles.card}>
             <View style={styles.cardAccent} />
             <Text style={styles.cardTitle}>Sign in</Text>
-            <Text style={styles.cardHint}>Use your {brand.name} operator credentials</Text>
+            <Text style={styles.cardHint}>Operator email and password</Text>
 
             <Text style={styles.label}>Email</Text>
             <TextInput
@@ -132,7 +128,8 @@ export default function LoginScreen() {
 
             {!isConfigured ? (
               <Text style={styles.error}>
-                Firebase is not configured in this build. Contact support.
+                This install was built without Firebase credentials. Ask IT to run a new
+                release build with environment variables configured.
               </Text>
             ) : null}
 
@@ -189,27 +186,15 @@ const styles = StyleSheet.create({
   },
   brandBlock: {
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     paddingHorizontal: 8,
   },
-  brandName: {
-    fontFamily: fonts.heading,
-    fontSize: 24,
-    color: c.text.primary,
-    letterSpacing: 0.5,
-    marginTop: 12,
-  },
-  tagline: {
+  locationLine: {
     fontFamily: fonts.body,
-    fontSize: 14,
+    fontSize: 13,
     color: c.text.secondary,
     textAlign: 'center',
-  },
-  panelTitle: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    color: c.text.mutedOnDark,
-    textAlign: 'center',
+    lineHeight: 18,
   },
   card: {
     backgroundColor: loginSurface.card,
