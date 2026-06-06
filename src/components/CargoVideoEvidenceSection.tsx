@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useEvent } from 'expo';
-import { useVideoPlayer, VideoView } from 'expo-video';
+import { Image } from 'expo-image';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -14,6 +13,7 @@ import {
 } from 'react-native';
 
 import { InfoModal } from '@/components/InfoModal';
+import { useVideoThumbnail } from '@/hooks/useVideoThumbnail';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import type { AppColors } from '@/theme/palettes';
@@ -21,8 +21,8 @@ import { fonts } from '@/theme/typography';
 import { downloadVideoEvidenceToGallery } from '@/utils/downloadVideoEvidence';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const VIDEO_WIDTH = SCREEN_WIDTH - 72;
-const VIDEO_HEIGHT = 200;
+const PREVIEW_WIDTH = SCREEN_WIDTH - 72;
+const PREVIEW_HEIGHT = 200;
 const CLIP_CARD_WIDTH = 108;
 const CLIP_CARD_HEIGHT = 76;
 
@@ -41,9 +41,9 @@ function createStyles(colors: AppColors) {
       color: colors.text.onSurfaceMuted,
       textAlign: 'center',
     },
-    playerShell: {
-      width: VIDEO_WIDTH,
-      height: VIDEO_HEIGHT,
+    previewShell: {
+      width: PREVIEW_WIDTH,
+      height: PREVIEW_HEIGHT,
       borderRadius: 12,
       overflow: 'hidden',
       backgroundColor: '#0a0a0a',
@@ -51,9 +51,38 @@ function createStyles(colors: AppColors) {
       borderColor: colors.border.onSurface,
       alignSelf: 'center',
     },
-    video: {
-      width: VIDEO_WIDTH,
-      height: VIDEO_HEIGHT,
+    previewImage: {
+      width: PREVIEW_WIDTH,
+      height: PREVIEW_HEIGHT,
+    },
+    previewPlaceholder: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    previewHint: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 8,
+      paddingHorizontal: 10,
+      backgroundColor: 'rgba(0,0,0,0.55)',
+    },
+    previewHintText: {
+      fontFamily: fonts.body,
+      fontSize: 11,
+      color: '#FFFFFF',
+    },
+    previewPlaceholderText: {
+      fontFamily: fonts.body,
+      fontSize: 12,
+      color: colors.text.onSurfaceMuted,
     },
     carousel: {
       gap: 10,
@@ -63,28 +92,39 @@ function createStyles(colors: AppColors) {
       width: CLIP_CARD_WIDTH,
       height: CLIP_CARD_HEIGHT,
       borderRadius: 10,
-      backgroundColor: '#0a0a0a',
+      overflow: 'hidden',
       borderWidth: 2,
       borderColor: colors.border.onSurface,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6,
-      paddingHorizontal: 8,
+      backgroundColor: '#0a0a0a',
     },
     clipCardSelected: {
       borderColor: colors.accent.primary,
-      backgroundColor: `${colors.accent.primary}18`,
     },
     clipCardPressed: {
       opacity: 0.85,
     },
-    clipLabel: {
-      fontFamily: fonts.bodySemiBold,
-      fontSize: 12,
-      color: colors.text.onSurface,
+    clipImage: {
+      width: '100%',
+      height: '100%',
     },
-    clipLabelSelected: {
-      color: colors.accent.primary,
+    clipPlaceholder: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    clipBadge: {
+      position: 'absolute',
+      left: 6,
+      bottom: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      borderRadius: 4,
+      backgroundColor: 'rgba(0,0,0,0.65)',
+    },
+    clipBadgeText: {
+      fontFamily: fonts.bodySemiBold,
+      fontSize: 10,
+      color: '#FFFFFF',
     },
     downloadBtn: {
       flexDirection: 'row',
@@ -112,43 +152,83 @@ function createStyles(colors: AppColors) {
   });
 }
 
-type CargoVideoPlayerProps = {
+type VideoClipThumbnailProps = {
+  videoUrl: string;
+  clipNumber: number;
+  selected: boolean;
+  onPress: () => void;
+  showBadge?: boolean;
+};
+
+function VideoClipThumbnail({
+  videoUrl,
+  clipNumber,
+  selected,
+  onPress,
+  showBadge = true,
+}: VideoClipThumbnailProps) {
+  const { colors } = useTheme();
+  const styles = useThemedStyles(createStyles);
+  const { thumbnailUri, isLoadingThumbnail } = useVideoThumbnail(videoUrl);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`Video clip ${clipNumber} thumbnail`}
+      style={({ pressed }) => [
+        styles.clipCard,
+        selected && styles.clipCardSelected,
+        pressed && styles.clipCardPressed,
+      ]}
+      onPress={onPress}>
+      {isLoadingThumbnail ? (
+        <View style={styles.clipPlaceholder}>
+          <ActivityIndicator size="small" color={colors.text.onSurfaceMuted} />
+        </View>
+      ) : thumbnailUri ? (
+        <Image source={{ uri: thumbnailUri }} style={styles.clipImage} contentFit="cover" />
+      ) : (
+        <View style={styles.clipPlaceholder}>
+          <Ionicons name="videocam" size={24} color={colors.text.onSurfaceMuted} />
+        </View>
+      )}
+      {showBadge ? (
+        <View style={styles.clipBadge}>
+          <Text style={styles.clipBadgeText}>Clip {clipNumber}</Text>
+        </View>
+      ) : null}
+    </Pressable>
+  );
+}
+
+type VideoPreviewProps = {
   videoUrl: string;
 };
 
-function CargoVideoPlayer({ videoUrl }: CargoVideoPlayerProps) {
+function VideoPreview({ videoUrl }: VideoPreviewProps) {
+  const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
-
-  const player = useVideoPlayer(videoUrl, (instance) => {
-    instance.loop = false;
-  });
-
-  const { status } = useEvent(player, 'statusChange', {
-    status: player.status,
-  });
-
-  const isBuffering = status === 'loading';
+  const { thumbnailUri, isLoadingThumbnail } = useVideoThumbnail(videoUrl);
 
   return (
-    <View style={styles.playerShell}>
-      <VideoView
-        style={styles.video}
-        player={player}
-        nativeControls
-        contentFit="contain"
-        allowsFullscreen
-      />
-      {isBuffering ? (
-        <View
-          style={{
-            ...StyleSheet.absoluteFillObject,
-            alignItems: 'center',
-            justifyContent: 'center',
-            backgroundColor: 'rgba(0,0,0,0.35)',
-          }}>
-          <ActivityIndicator size="large" color="#ffffff" />
+    <View style={styles.previewShell}>
+      {isLoadingThumbnail ? (
+        <View style={styles.previewPlaceholder}>
+          <ActivityIndicator size="large" color={colors.text.onSurfaceMuted} />
         </View>
-      ) : null}
+      ) : thumbnailUri ? (
+        <Image source={{ uri: thumbnailUri }} style={styles.previewImage} contentFit="cover" />
+      ) : (
+        <View style={styles.previewPlaceholder}>
+          <Ionicons name="videocam-outline" size={40} color={colors.text.onSurfaceMuted} />
+          <Text style={styles.previewPlaceholderText}>Preview unavailable</Text>
+        </View>
+      )}
+      <View style={styles.previewHint}>
+        <Ionicons name="download-outline" size={14} color="#FFFFFF" />
+        <Text style={styles.previewHintText}>Download to view in your gallery</Text>
+      </View>
     </View>
   );
 }
@@ -189,11 +269,6 @@ export function CargoVideoEvidenceSection({ videoUrls }: CargoVideoEvidenceSecti
         return;
       }
 
-      if (result.reason === 'permission_denied') {
-        Alert.alert('Download Failed', result.message);
-        return;
-      }
-
       Alert.alert('Download Failed', result.message);
     } finally {
       setIsDownloading(false);
@@ -210,11 +285,11 @@ export function CargoVideoEvidenceSection({ videoUrls }: CargoVideoEvidenceSecti
         visible={showSuccessModal}
         icon="checkmark-circle-outline"
         title="Success"
-        message="Success: Video successfully saved to your gallery."
+        message="Video saved to your gallery."
         onConfirm={() => setShowSuccessModal(false)}
       />
 
-      <CargoVideoPlayer key={selectedVideoUrl} videoUrl={selectedVideoUrl} />
+      <VideoPreview key={selectedVideoUrl} videoUrl={selectedVideoUrl} />
 
       <Text style={styles.indexLabel}>
         Clip {safeIndex + 1} / {total}
@@ -227,31 +302,16 @@ export function CargoVideoEvidenceSection({ videoUrls }: CargoVideoEvidenceSecti
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.carousel}
-          renderItem={({ item, index }) => {
-            const isSelected = index === safeIndex;
-            return (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`Clip ${index + 1}`}
-                style={({ pressed }) => [
-                  styles.clipCard,
-                  isSelected && styles.clipCardSelected,
-                  pressed && styles.clipCardPressed,
-                  index < total - 1 && { marginRight: 10 },
-                ]}
-                onPress={() => setSelectedVideoIndex(index)}>
-                <Ionicons
-                  name="play-circle"
-                  size={28}
-                  color={isSelected ? colors.accent.primary : colors.text.onSurfaceMuted}
-                />
-                <Text style={[styles.clipLabel, isSelected && styles.clipLabelSelected]}>
-                  Clip {index + 1}
-                </Text>
-              </Pressable>
-            );
-          }}
+          renderItem={({ item, index }) => (
+            <View style={index < total - 1 ? { marginRight: 10 } : undefined}>
+              <VideoClipThumbnail
+                videoUrl={item}
+                clipNumber={index + 1}
+                selected={index === safeIndex}
+                onPress={() => setSelectedVideoIndex(index)}
+              />
+            </View>
+          )}
         />
       ) : null}
 

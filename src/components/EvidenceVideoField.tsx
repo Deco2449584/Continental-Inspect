@@ -1,24 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 
 import { InfoModal } from '@/components/InfoModal';
 import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import type { AppColors } from '@/theme/palettes';
+import { compressVideoEvidenceUri } from '@/utils/compressVideoEvidence';
 import {
   MAX_VIDEO_DURATION_SEC,
   validateVideoAsset,
   VIDEO_TOO_LONG_MODAL,
 } from '@/utils/evidenceMediaValidation';
 
-const VIDEO_QUALITY = 0;
-
 const VIDEO_PICKER_OPTIONS: ImagePicker.ImagePickerOptions = {
   mediaTypes: ['videos'],
   videoMaxDuration: MAX_VIDEO_DURATION_SEC,
-  quality: VIDEO_QUALITY,
   allowsEditing: false,
 };
 
@@ -90,6 +96,9 @@ function createStyles(colors: AppColors) {
     actionButtonPressed: {
       opacity: 0.75,
     },
+    actionButtonDisabled: {
+      opacity: 0.5,
+    },
     actionButtonText: {
       fontSize: 14,
       fontWeight: '600',
@@ -99,6 +108,19 @@ function createStyles(colors: AppColors) {
       fontSize: 14,
       fontWeight: '600',
       color: colors.text.onSurface,
+    },
+    compressingRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      borderRadius: 10,
+      backgroundColor: colors.surface.muted,
+    },
+    compressingText: {
+      fontSize: 13,
+      color: colors.text.onSurfaceMuted,
     },
     list: {
       gap: 8,
@@ -133,30 +155,46 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
   const { colors } = useTheme();
   const styles = useThemedStyles(createStyles);
   const [showVideoTooLongModal, setShowVideoTooLongModal] = useState(false);
+  const [isCompressing, setIsCompressing] = useState(false);
 
-  const tryAppendVideoAsset = (asset: ImagePicker.ImagePickerAsset | undefined) => {
-    if (!asset?.uri) return;
+  const tryAppendVideoAsset = async (asset: ImagePicker.ImagePickerAsset | undefined) => {
+    if (!asset?.uri || isCompressing) return;
 
     if (!validateVideoAsset(asset)) {
       setShowVideoTooLongModal(true);
       return;
     }
 
-    onChange([...videos, asset.uri]);
+    setIsCompressing(true);
+    try {
+      const compressedUri = await compressVideoEvidenceUri(asset.uri);
+      onChange([...videos, compressedUri]);
+    } catch {
+      Alert.alert(
+        'Video processing failed',
+        'Could not compress the clip. Try recording a shorter video and try again.',
+      );
+    } finally {
+      setIsCompressing(false);
+    }
   };
 
   const handleRecordVideo = async () => {
+    if (isCompressing) return;
+
     const allowed = await ensureCameraPermission();
     if (!allowed) return;
 
     const result = await ImagePicker.launchCameraAsync(VIDEO_PICKER_OPTIONS);
 
     if (!result.canceled && result.assets[0]) {
-      tryAppendVideoAsset(result.assets[0]);
+      await tryAppendVideoAsset(result.assets[0]);
     }
   };
 
   const handlePickFromLibrary = async () => {
+    if (isCompressing) return;
+
     const allowed = await ensureLibraryPermission();
     if (!allowed) return;
 
@@ -166,7 +204,7 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
     });
 
     if (!result.canceled && result.assets[0]) {
-      tryAppendVideoAsset(result.assets[0]);
+      await tryAppendVideoAsset(result.assets[0]);
     }
   };
 
@@ -186,25 +224,39 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
 
       <Text style={styles.label}>Video evidence</Text>
       <Text style={styles.hint}>
-        Record or upload a clip (max {MAX_VIDEO_DURATION_SEC}s, compressed)
+        Max {MAX_VIDEO_DURATION_SEC}s · auto-compressed before upload (720p quality)
       </Text>
 
       <View style={styles.actions}>
         <Pressable
-          style={({ pressed }) => [styles.actionButton, pressed && styles.actionButtonPressed]}
-          onPress={() => void handleRecordVideo()}>
+          style={({ pressed }) => [
+            styles.actionButton,
+            (pressed || isCompressing) && styles.actionButtonPressed,
+            isCompressing && styles.actionButtonDisabled,
+          ]}
+          onPress={() => void handleRecordVideo()}
+          disabled={isCompressing}>
           <Text style={styles.actionButtonText}>Record video</Text>
         </Pressable>
         <Pressable
           style={({ pressed }) => [
             styles.actionButton,
             styles.actionButtonSecondary,
-            pressed && styles.actionButtonPressed,
+            (pressed || isCompressing) && styles.actionButtonPressed,
+            isCompressing && styles.actionButtonDisabled,
           ]}
-          onPress={() => void handlePickFromLibrary()}>
+          onPress={() => void handlePickFromLibrary()}
+          disabled={isCompressing}>
           <Text style={styles.actionButtonTextSecondary}>Upload video</Text>
         </Pressable>
       </View>
+
+      {isCompressing ? (
+        <View style={styles.compressingRow}>
+          <ActivityIndicator size="small" color={colors.accent.primary} />
+          <Text style={styles.compressingText}>Compressing video…</Text>
+        </View>
+      ) : null}
 
       {videos.length > 0 ? (
         <ScrollView contentContainerStyle={styles.list}>
@@ -213,9 +265,12 @@ export function EvidenceVideoField({ videos, onChange }: EvidenceVideoFieldProps
               <Ionicons name="videocam" size={20} color={colors.text.onSurface} />
               <Text style={styles.rowLabel} numberOfLines={1}>
                 Video {index + 1}
-                {uri.startsWith('http') ? ' (saved)' : ' (pending upload)'}
+                {uri.startsWith('http') ? ' (saved)' : ' (ready to upload)'}
               </Text>
-              <Pressable style={styles.removeBtn} onPress={() => handleRemove(uri)}>
+              <Pressable
+                style={styles.removeBtn}
+                onPress={() => handleRemove(uri)}
+                disabled={isCompressing}>
                 <Ionicons name="close-circle" size={22} color="#c62828" />
               </Pressable>
             </View>

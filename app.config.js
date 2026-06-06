@@ -33,6 +33,7 @@ module.exports = () => {
 
   return {
     ...appJson.expo,
+    plugins: [...(appJson.expo.plugins ?? []), 'react-native-compressor'],
     extra: {
       ...appJson.expo.extra,
       firebaseEnvReady: missing.length === 0,
