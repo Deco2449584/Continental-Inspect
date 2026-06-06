@@ -18,9 +18,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { useThemedStyles } from '@/hooks/useThemedStyles';
 import {
   deactivateEmployee,
-  fetchAllEmployees,
   getRoleLabel,
   resolveRoleFromEmployee,
+  subscribeToAllEmployees,
   updateEmployeeProfile,
   type ManagedEmployee,
 } from '@/services/userRepository';
@@ -665,6 +665,33 @@ type UserManagementSectionProps = {
   currentAuthEmail?: string | null;
 };
 
+function areEmployeeListsEqual(
+  previous: ManagedEmployee[],
+  next: ManagedEmployee[],
+): boolean {
+  if (previous.length !== next.length) {
+    return false;
+  }
+
+  for (let index = 0; index < previous.length; index += 1) {
+    const left = previous[index];
+    const right = next[index];
+    if (
+      left.docId !== right.docId ||
+      left.active !== right.active ||
+      left.name !== right.name ||
+      left.department !== right.department ||
+      left.employeeId !== right.employeeId ||
+      left.email !== right.email ||
+      left.role !== right.role
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 export function UserManagementSection({
   currentAuthUid,
   currentAuthEmail,
@@ -682,14 +709,27 @@ export function UserManagementSection({
     setInfoModal({ title, message });
   }
 
-  const loadUsers = useCallback(async () => {
+  const loadUsers = useCallback(() => {
     setIsLoading(true);
-    const list = await fetchAllEmployees();
-    setUsers(list);
-    setIsLoading(false);
+
+    const unsubscribe = subscribeToAllEmployees(
+      (list) => {
+        setUsers((previous) => (areEmployeeListsEqual(previous, list) ? previous : list));
+        setIsLoading(false);
+      },
+      () => {
+        setUsers([]);
+        setIsLoading(false);
+      },
+    );
+
+    return unsubscribe;
   }, []);
 
-  useEffect(() => { loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    const unsubscribe = loadUsers();
+    return unsubscribe;
+  }, [loadUsers]);
 
   function handleEmployeeUpdated(updated: ManagedEmployee) {
     setUsers((prev) =>

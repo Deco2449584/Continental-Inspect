@@ -10,7 +10,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -24,7 +23,7 @@ import {
   resolveUserRole,
   subscribeToEmployeeRecord,
 } from '@/services/userRepository';
-import type { EmployeeProfile, UserRole } from '@/types/auth';
+import type { EmployeeProfile, EmployeeRecord, UserRole } from '@/types/auth';
 
 export type AuthAccessDeniedReason =
   | 'not_found'
@@ -51,13 +50,28 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+function employeeRecordChanged(
+  current: EmployeeProfile,
+  record: EmployeeRecord,
+  email: string,
+): boolean {
+  const nextRole = resolveRoleFromEmployee(record, email);
+  return (
+    current.active !== record.active ||
+    current.name !== record.name ||
+    current.department !== record.department ||
+    current.employeeId !== record.employeeId ||
+    current.email !== (record.email || email) ||
+    current.role !== nextRole
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<EmployeeProfile | null>(null);
   const [profileSyncFailed, setProfileSyncFailed] = useState(false);
   const [accessDeniedReason, setAccessDeniedReason] = useState<AuthAccessDeniedReason>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const inactiveSignOutRef = useRef(false);
 
   const rejectSession = useCallback(async (reason: AuthAccessDeniedReason) => {
     setProfile(null);
@@ -70,12 +84,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const handleInactiveAccount = useCallback(async () => {
-    if (inactiveSignOutRef.current) return;
-    inactiveSignOutRef.current = true;
-
     Alert.alert('Account deactivated', INACTIVE_ALERT_MESSAGE);
     await rejectSession('inactive');
-    inactiveSignOutRef.current = false;
   }, [rejectSession]);
 
   useEffect(() => {
@@ -84,7 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let employeeUnsubscribe: (() => void) | undefined;
+    let cancelled = false;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      employeeUnsubscribe?.();
+      employeeUnsubscribe = undefined;
       setAccessDeniedReason(null);
 
       if (!firebaseUser) {
@@ -104,9 +119,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           firebaseUser.uid,
           firebaseUser.email,
         );
+
+        if (cancelled) return;
+
         setProfile(nextProfile);
         setProfileSyncFailed(false);
         setAccessDeniedReason(null);
+
+        employeeUnsubscribe = subscribeToEmployeeRecord(nextProfile.docId, (record) => {
+          if (!record || !record.active) {
+            void handleInactiveAccount();
+            return;
+          }
+
+          setProfile((current) => {
+            if (!current || current.docId !== nextProfile.docId) {
+              return current;
+            }
+
+            const email = firebaseUser.email ?? current.email;
+            if (!employeeRecordChanged(current, record, email)) {
+              return current;
+            }
+
+            return {
+              ...current,
+              ...record,
+              email: record.email || email,
+              role: resolveRoleFromEmployee(record, email),
+            };
+          });
+        });
       } catch (error) {
         setProfile(null);
 
@@ -130,42 +173,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfileSyncFailed(true);
         await rejectSession('firestore_unavailable');
       } finally {
-        setIsLoading(false);
-      }
-    });
-
-    return unsubscribe;
-  }, [rejectSession]);
-
-  useEffect(() => {
-    const docId = profile?.docId;
-    if (!user || !docId) {
-      return;
-    }
-
-    const unsubscribe = subscribeToEmployeeRecord(docId, (record) => {
-      if (!record || !record.active) {
-        void handleInactiveAccount();
-        return;
-      }
-
-      setProfile((current) => {
-        if (!current || current.docId !== docId) {
-          return current;
+        if (!cancelled) {
+          setIsLoading(false);
         }
-
-        const email = user.email ?? current.email;
-        return {
-          ...current,
-          ...record,
-          email: record.email || email,
-          role: resolveRoleFromEmployee(record, email),
-        };
-      });
+      }
     });
 
-    return unsubscribe;
-  }, [user, profile?.docId, handleInactiveAccount]);
+    return () => {
+      cancelled = true;
+      unsubscribeAuth();
+      employeeUnsubscribe?.();
+    };
+  }, [rejectSession, handleInactiveAccount]);
 
   const signIn = useCallback(async (email: string, password: string) => {
     if (!auth) {

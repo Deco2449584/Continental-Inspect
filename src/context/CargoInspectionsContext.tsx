@@ -19,6 +19,7 @@ import {
     subscribeToUserCargoInspections,
     updateCargoInspection,
 } from '@/services/cargoInspectionRepository';
+import { areCargoInspectionListsEqual } from '@/utils/cargoInspectionListEqual';
 import { resolveInspectionStatus } from '@/utils/cargoInspectionStatus';
 import { isFirebaseConfigured } from '@/services/firebaseConfig';
 import type {
@@ -51,7 +52,7 @@ const CargoInspectionsContext = createContext<CargoInspectionsContextValue | und
 );
 
 export function CargoInspectionsProvider({ children }: { children: ReactNode }) {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, profile, isLoading: authLoading } = useAuth();
   const [inspections, setInspections] = useState<CargoInspection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +63,10 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
       setInspections([]);
       setError(null);
       setIsLoading(false);
+      return;
+    }
+
+    if (authLoading || !profile) {
       return;
     }
 
@@ -76,7 +81,12 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
     setError(null);
 
     const onData = (nextInspections: CargoInspection[]) => {
-      setInspections(nextInspections);
+      setInspections((previous) => {
+        if (areCargoInspectionListsEqual(previous, nextInspections)) {
+          return previous;
+        }
+        return nextInspections;
+      });
       setIsLoading(false);
       setError(null);
     };
@@ -91,7 +101,7 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
       : subscribeToUserCargoInspections(user.uid, onData, onError);
 
     return unsubscribe;
-  }, [user?.uid, isAdmin]);
+  }, [user?.uid, isAdmin, profile?.docId, authLoading]);
 
   const refreshRecords = useCallback(async () => {
     setIsRefreshing(true);
@@ -110,13 +120,19 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
       if (local) {
         return local;
       }
+
+      // Admins already subscribe to the full collection; a miss means no duplicate exists.
+      if (isAdmin) {
+        return null;
+      }
+
       try {
         return await fetchCargoInspectionByUldId(uldId);
       } catch {
         return null;
       }
     },
-    [inspections],
+    [inspections, isAdmin],
   );
 
   const addInspection = useCallback(
@@ -138,10 +154,14 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
 
       setInspections((prev) => {
         const withoutDuplicate = prev.filter((item) => item.id !== inspection.id);
-        return [inspection, ...withoutDuplicate].sort(
+        const next = [inspection, ...withoutDuplicate].sort(
           (a, b) =>
             new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
         );
+        if (areCargoInspectionListsEqual(prev, next)) {
+          return prev;
+        }
+        return next;
       });
 
       return inspection;
@@ -187,14 +207,18 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
         updatedAt: updatedAtIso,
       };
 
-      setInspections((prev) =>
-        prev
+      setInspections((prev) => {
+        const next = prev
           .map((item) => (item.id === inspectionId ? updated : item))
           .sort(
             (a, b) =>
               new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
-          ),
-      );
+          );
+        if (areCargoInspectionListsEqual(prev, next)) {
+          return prev;
+        }
+        return next;
+      });
 
       return updated;
     },
@@ -220,14 +244,18 @@ export function CargoInspectionsProvider({ children }: { children: ReactNode }) 
         updatedAt: updatedAtIso,
       };
 
-      setInspections((prev) =>
-        prev
+      setInspections((prev) => {
+        const next = prev
           .map((item) => (item.id === inspectionId ? updated : item))
           .sort(
             (a, b) =>
               new Date(b.registeredAt).getTime() - new Date(a.registeredAt).getTime(),
-          ),
-      );
+          );
+        if (areCargoInspectionListsEqual(prev, next)) {
+          return prev;
+        }
+        return next;
+      });
 
       return updated;
     },

@@ -92,7 +92,7 @@ function toEmployeeProfile(docId: string, record: EmployeeRecord, email: string)
   };
 }
 
-async function findEmployeeByAuthEmail(
+async function findEmployeeDocForAuth(
   email: string,
   authUid: string,
 ): Promise<{ docId: string; record: EmployeeRecord } | null> {
@@ -125,6 +125,8 @@ async function findEmployeeByAuthEmail(
   return { docId: document.id, record };
 }
 
+export { findEmployeeDocForAuth };
+
 export type LoadEmployeeProfileResult = {
   profile: EmployeeProfile;
   syncedToFirestore: boolean;
@@ -149,7 +151,7 @@ export async function loadEmployeeProfile(
     throw new EmployeeAccessError('no_email', 'Account has no email address.');
   }
 
-  const found = await findEmployeeByAuthEmail(email, authUid);
+  const found = await findEmployeeDocForAuth(email, authUid);
   if (!found) {
     throw new EmployeeAccessError(
       'not_found',
@@ -212,7 +214,7 @@ function mapManagedEmployee(
   };
 }
 
-/** Lists employees (admin — requires Firestore rules). */
+/** Lists employees once (prefer subscribeToAllEmployees for admin UI). */
 export async function fetchAllEmployees(): Promise<ManagedEmployee[]> {
   if (!db) return [];
 
@@ -220,15 +222,42 @@ export async function fetchAllEmployees(): Promise<ManagedEmployee[]> {
     const snapshot = await getDocs(
       query(collection(db, EMPLOYEES_COLLECTION), orderBy('email')),
     );
-    return snapshot.docs
-      .map((document) => {
-        const record = parseEmployeeRecord(document.data() as Record<string, unknown>);
-        return record ? mapManagedEmployee(document.id, record) : null;
-      })
-      .filter((item): item is ManagedEmployee => item !== null);
+    return mapEmployeeSnapshot(snapshot.docs);
   } catch {
     return [];
   }
+}
+
+function mapEmployeeSnapshot(
+  docs: { id: string; data: () => Record<string, unknown> }[],
+): ManagedEmployee[] {
+  return docs
+    .map((document) => {
+      const record = parseEmployeeRecord(document.data());
+      return record ? mapManagedEmployee(document.id, record) : null;
+    })
+    .filter((item): item is ManagedEmployee => item !== null);
+}
+
+/** Real-time employee list for admin screens (avoids repeated getDocs). */
+export function subscribeToAllEmployees(
+  onData: (employees: ManagedEmployee[]) => void,
+  onError?: (error: Error) => void,
+): Unsubscribe {
+  if (!db) {
+    onError?.(new Error('Firestore is not configured.'));
+    return () => {};
+  }
+
+  return onSnapshot(
+    query(collection(db, EMPLOYEES_COLLECTION), orderBy('email')),
+    (snapshot) => {
+      onData(mapEmployeeSnapshot(snapshot.docs));
+    },
+    (error) => {
+      onError?.(error);
+    },
+  );
 }
 
 /** @deprecated Use fetchAllEmployees */
