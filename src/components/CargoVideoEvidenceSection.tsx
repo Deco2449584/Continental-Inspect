@@ -187,7 +187,13 @@ function VideoClipThumbnail({
           <ActivityIndicator size="small" color={colors.text.onSurfaceMuted} />
         </View>
       ) : thumbnailUri ? (
-        <Image source={{ uri: thumbnailUri }} style={styles.clipImage} contentFit="cover" />
+        <Image
+          source={{ uri: thumbnailUri }}
+          style={styles.clipImage}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={thumbnailUri}
+        />
       ) : (
         <View style={styles.clipPlaceholder}>
           <Ionicons name="videocam" size={24} color={colors.text.onSurfaceMuted} />
@@ -218,7 +224,13 @@ function VideoPreview({ videoUrl }: VideoPreviewProps) {
           <ActivityIndicator size="large" color={colors.text.onSurfaceMuted} />
         </View>
       ) : thumbnailUri ? (
-        <Image source={{ uri: thumbnailUri }} style={styles.previewImage} contentFit="cover" />
+        <Image
+          source={{ uri: thumbnailUri }}
+          style={styles.previewImage}
+          contentFit="cover"
+          cachePolicy="memory-disk"
+          recyclingKey={thumbnailUri}
+        />
       ) : (
         <View style={styles.previewPlaceholder}>
           <Ionicons name="videocam-outline" size={40} color={colors.text.onSurfaceMuted} />

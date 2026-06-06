@@ -81,7 +81,7 @@ export function validateVideoAsset(asset: ImagePickerAsset): boolean {
 export const PHOTO_TOO_LARGE_MODAL = {
   title: 'Image Too Large',
   message:
-    'Image resolution too high. Please take a standard photo to avoid exceeding storage limits.',
+    'Even after WebP optimization the photo exceeds 3 MB. Try a closer shot or lower resolution.',
   icon: 'image-outline' as const,
 };
 

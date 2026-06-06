@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/context/ThemeContext';
@@ -137,7 +138,7 @@ function createStyles(colors: AppColors) {
   });
 }
 
-export function CargoCard({ inspection, onPress }: CargoCardProps) {
+export const CargoCard = memo(function CargoCard({ inspection, onPress }: CargoCardProps) {
   const styles = useThemedStyles(createStyles);
   const { colors } = useTheme();
 
@@ -174,7 +175,13 @@ export function CargoCard({ inspection, onPress }: CargoCardProps) {
       <View style={styles.body}>
         <View style={styles.topRow}>
           {thumbUri ? (
-            <Image source={{ uri: thumbUri }} style={styles.thumb} contentFit="cover" />
+            <Image
+              source={{ uri: thumbUri }}
+              style={styles.thumb}
+              contentFit="cover"
+              cachePolicy="memory-disk"
+              recyclingKey={thumbUri}
+            />
           ) : (
             <View style={styles.iconWrap}>
               <Ionicons name="cube-outline" size={22} color={colors.accent.primary} />
@@ -228,4 +235,12 @@ export function CargoCard({ inspection, onPress }: CargoCardProps) {
       </View>
     </Pressable>
   );
-}
+}, (previous, next) => {
+  return (
+    previous.inspection.id === next.inspection.id &&
+    previous.inspection.updatedAt === next.inspection.updatedAt &&
+    previous.inspection.status === next.inspection.status &&
+    previous.inspection.hasIssues === next.inspection.hasIssues &&
+    previous.onPress === next.onPress
+  );
+});

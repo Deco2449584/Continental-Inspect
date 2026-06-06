@@ -1,9 +1,44 @@
 import * as VideoThumbnails from 'expo-video-thumbnails';
 import { useEffect, useState } from 'react';
 
+const thumbnailCache = new Map<string, string>();
+const inflightRequests = new Map<string, Promise<string | null>>();
+
+async function loadVideoThumbnail(videoUrl: string): Promise<string | null> {
+  const cached = thumbnailCache.get(videoUrl);
+  if (cached) {
+    return cached;
+  }
+
+  const pending = inflightRequests.get(videoUrl);
+  if (pending) {
+    return pending;
+  }
+
+  const request = VideoThumbnails.getThumbnailAsync(videoUrl, {
+    time: 500,
+    quality: 0.72,
+  })
+    .then(({ uri }) => {
+      thumbnailCache.set(videoUrl, uri);
+      return uri;
+    })
+    .catch(() => null)
+    .finally(() => {
+      inflightRequests.delete(videoUrl);
+    });
+
+  inflightRequests.set(videoUrl, request);
+  return request;
+}
+
 export function useVideoThumbnail(videoUrl: string | null | undefined) {
-  const [thumbnailUri, setThumbnailUri] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [thumbnailUri, setThumbnailUri] = useState<string | null>(() =>
+    videoUrl ? (thumbnailCache.get(videoUrl) ?? null) : null,
+  );
+  const [isLoading, setIsLoading] = useState(
+    () => Boolean(videoUrl) && !thumbnailCache.has(videoUrl),
+  );
 
   useEffect(() => {
     if (!videoUrl) {
@@ -12,22 +47,20 @@ export function useVideoThumbnail(videoUrl: string | null | undefined) {
       return;
     }
 
+    const cached = thumbnailCache.get(videoUrl);
+    if (cached) {
+      setThumbnailUri(cached);
+      setIsLoading(false);
+      return;
+    }
+
     let cancelled = false;
     setIsLoading(true);
-    setThumbnailUri(null);
 
-    VideoThumbnails.getThumbnailAsync(videoUrl, {
-      time: 500,
-      quality: 0.82,
-    })
-      .then(({ uri }) => {
+    loadVideoThumbnail(videoUrl)
+      .then((uri) => {
         if (!cancelled) {
           setThumbnailUri(uri);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setThumbnailUri(null);
         }
       })
       .finally(() => {

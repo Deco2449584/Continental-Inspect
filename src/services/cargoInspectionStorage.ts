@@ -1,14 +1,37 @@
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 import { storage } from '@/services/firebaseConfig';
+import { compressPhotoEvidenceUri } from '@/utils/compressPhotoEvidence';
 
 function extensionFromUri(uri: string, kind: 'photo' | 'video'): string {
-  if (kind === 'video') {
-    const match = uri.match(/\.(mp4|mov|m4v|webm)(\?|$)/i);
-    return match?.[1]?.toLowerCase() ?? 'mp4';
+  if (kind === 'photo') {
+    if (/\.webp(\?|$)/i.test(uri)) {
+      return 'webp';
+    }
+    const match = uri.match(/\.(jpe?g|png|heic)(\?|$)/i);
+    return match?.[1]?.toLowerCase().replace('jpeg', 'jpg') ?? 'webp';
   }
-  const match = uri.match(/\.(jpe?g|png|webp|heic)(\?|$)/i);
-  return match?.[1]?.toLowerCase().replace('jpeg', 'jpg') ?? 'jpg';
+
+  const match = uri.match(/\.(mp4|mov|m4v|webm)(\?|$)/i);
+  return match?.[1]?.toLowerCase() ?? 'mp4';
+}
+
+function contentTypeForUpload(ext: string, kind: 'photo' | 'video', blobType: string): string {
+  if (blobType) {
+    return blobType;
+  }
+
+  if (kind === 'video') {
+    return ext === 'mov' ? 'video/quicktime' : `video/${ext}`;
+  }
+
+  if (ext === 'webp') {
+    return 'image/webp';
+  }
+  if (ext === 'png') {
+    return 'image/png';
+  }
+  return 'image/jpeg';
 }
 
 function isRemoteUrl(uri: string): boolean {
@@ -21,6 +44,13 @@ async function uriToBlob(uri: string): Promise<Blob> {
     throw new Error(`Could not read media file (${response.status}).`);
   }
   return response.blob();
+}
+
+async function prepareLocalPhotoUri(uri: string): Promise<string> {
+  if (isRemoteUrl(uri)) {
+    return uri;
+  }
+  return compressPhotoEvidenceUri(uri);
 }
 
 async function uploadMediaUris(
@@ -37,25 +67,21 @@ async function uploadMediaUris(
   const kind = folder === 'videos' ? 'video' : 'photo';
 
   for (let index = 0; index < localUris.length; index += 1) {
-    const uri = localUris[index];
+    const sourceUri = localUris[index];
 
-    if (isRemoteUrl(uri)) {
-      downloadUrls.push(uri);
+    if (isRemoteUrl(sourceUri)) {
+      downloadUrls.push(sourceUri);
       continue;
     }
 
-    const ext = extensionFromUri(uri, kind);
+    const uploadUri = kind === 'photo' ? await prepareLocalPhotoUri(sourceUri) : sourceUri;
+    const ext = extensionFromUri(uploadUri, kind);
     const objectPath = `cargo_inspections/${userId}/${inspectionId}/${folder}/${Date.now()}-${index}.${ext}`;
     const objectRef = ref(storage, objectPath);
-    const blob = await uriToBlob(uri);
-
-    const defaultType =
-      kind === 'video'
-        ? `video/${ext === 'mov' ? 'quicktime' : ext}`
-        : `image/${ext === 'png' ? 'png' : 'jpeg'}`;
+    const blob = await uriToBlob(uploadUri);
 
     await uploadBytes(objectRef, blob, {
-      contentType: blob.type || defaultType,
+      contentType: contentTypeForUpload(ext, kind, blob.type),
     });
 
     downloadUrls.push(await getDownloadURL(objectRef));

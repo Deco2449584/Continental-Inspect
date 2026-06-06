@@ -174,6 +174,10 @@ export default function SearchScreen() {
         )}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
+        initialNumToRender={8}
+        maxToRenderPerBatch={6}
+        windowSize={7}
+        removeClippedSubviews
         ListHeaderComponent={
           <>
             <View style={styles.header}>
